@@ -1,15 +1,59 @@
 [build-system]
-requires = ["setuptools>=61"]
-build-backend = "setuptools.build_meta"
+requires = ["scikit-build-core>=0.10"]
+build-backend = "scikit_build_core.build"
 
 [project]
 name = "treepydoc"
 version = "0.1.0"
 description = "A tree-sitter grammar and parser for numpydoc docstrings"
 readme = "README.md"
-license = { text = "MIT" }
+license = { file = "LICENSE" }
 requires-python = ">=3.9"
+keywords = ["tree-sitter", "numpydoc", "docstring", "parser", "sphinx"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: C",
+  "Programming Language :: Python :: 3",
+  "Topic :: Software Development :: Documentation",
+  "Topic :: Text Processing :: Markup :: reStructuredText",
+]
 dependencies = ["tree_sitter>=0.23"]
 
 [project.optional-dependencies]
-test = ["numpydoc"]
+# The differential suites need something to compare against.
+test = ["pytest"]
+sphinx = ["sphinx", "jinja2"]
+
+[project.urls]
+Homepage = "https://github.com/carreau/treepydoc"
+
+[tool.scikit-build]
+minimum-version = "build-system.requires"
+build-dir = "build/{wheel_tag}"
+wheel.py-api = "cp39"
+wheel.packages = ["treepydoc", "bindings/python/tree_sitter_numpydoc"]
+sdist.include = ["src/**", "grammar.js", "tree-sitter.json", "queries/*.scm"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+# Generated and vendored trees are not ours to style.
+exclude = ["src", "bindings", "build"]
+line-length = 88
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B"]
+
+[tool.ruff.lint.per-file-ignores]
+# A faithful port of numpydoc's rendering and error messages. The `%`
+# formatting, the `super(Cls, self)` calls, the `getattr(x, "__call__")` lookup
+# and the `warn()` without a stacklevel are all reproduced deliberately: this
+# module exists to produce byte-identical output, so modernising them is churn
+# on code whose entire contract is exactness.
+"treepydoc/__init__.py" = ["UP031", "UP008", "B004", "B028"]
+# Docstring fixtures copied verbatim out of numpydoc's test suite. Reflowing
+# them would change the data under test.
+"tools/corpus.py" = ["E501"]

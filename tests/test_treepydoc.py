@@ -12,13 +12,12 @@ is not importable.
 from __future__ import annotations
 
 import importlib.util
-import sys
 import warnings
 from pathlib import Path
 
 import pytest
-import tree_sitter
 
+import tree_sitter
 import treepydoc
 
 TOOLS_DIR = Path(__file__).resolve().parent.parent / "tools"
@@ -26,7 +25,9 @@ TOOLS_DIR = Path(__file__).resolve().parent.parent / "tools"
 
 def _load_corpus():
     """Import tools/corpus.py without relying on package/path setup."""
-    spec = importlib.util.spec_from_file_location("_treepydoc_corpus", TOOLS_DIR / "corpus.py")
+    spec = importlib.util.spec_from_file_location(
+        "_treepydoc_corpus", TOOLS_DIR / "corpus.py"
+    )
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
@@ -91,12 +92,15 @@ def test_parse_returns_tree_with_no_errors():
     tree = treepydoc.parse(REPRESENTATIVE_DOC)
     assert isinstance(tree, tree_sitter.Tree)
     errors = list(all_errors(tree.root_node))
-    assert errors == [], "unexpected ERROR node(s): %r" % errors
+    assert errors == [], f"unexpected ERROR node(s): {errors!r}"
     assert tree.root_node.type == "document"
 
 
 def test_parse_dedents_like_numpydoc_init():
-    indented = "    Summary.\n\n    Parameters\n    ----------\n    x : int\n        Desc.\n"
+    indented = (
+        "    Summary.\n\n    Parameters\n    ----------\n"
+        "    x : int\n        Desc.\n"
+    )
     tree = treepydoc.parse(indented)
     assert list(all_errors(tree.root_node)) == []
     names = list(find_all(tree.root_node, "name"))
@@ -439,11 +443,13 @@ def test_matches_numpydoc_docscrape(name, text):
     for key in docscrape.NumpyDocString.sections:
         want = _normalise(expected[key])
         got = _normalise(actual[key])
-        assert got == want, "mismatch in section %r for corpus case %r" % (key, name)
+        assert got == want, f"mismatch in section {key!r} for corpus case {name!r}"
 
 
 @pytest.mark.parametrize(
-    "name,text,exc_name", corpus.RAISING_CORPUS, ids=[c[0] for c in corpus.RAISING_CORPUS]
+    "name,text,exc_name",
+    corpus.RAISING_CORPUS,
+    ids=[c[0] for c in corpus.RAISING_CORPUS],
 )
 def test_matches_numpydoc_docscrape_raising(name, text, exc_name):
     pytest.importorskip("numpydoc.docscrape")
@@ -595,7 +601,9 @@ def test_str_rendering_matches_numpydoc(name, text):
     docscrape = pytest.importorskip("numpydoc.docscrape")
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        assert str(treepydoc.NumpyDocString(text)) == str(docscrape.NumpyDocString(text))
+        assert str(treepydoc.NumpyDocString(text)) == str(
+            docscrape.NumpyDocString(text)
+        )
 
 
 @pytest.mark.parametrize("kind", ["function", "class"])

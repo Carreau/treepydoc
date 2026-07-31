@@ -65,5 +65,4 @@ def install() -> list[str]:
 
 def pytest_configure(config):
     swapped = install()
-    config.stash  # touch, so a bare plugin is obviously a plugin
-    print("treepydoc swapped in for: %s" % ", ".join(swapped), file=sys.stderr)
+    print(f"treepydoc swapped in for: {', '.join(swapped)}", file=sys.stderr)

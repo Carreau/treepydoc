@@ -18,9 +18,9 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 
 import corpus  # noqa: E402
+from numpydoc import docscrape  # noqa: E402
 
 import treepydoc  # noqa: E402
-from numpydoc import docscrape  # noqa: E402
 
 SECTION_KEYS = list(docscrape.NumpyDocString.sections)
 

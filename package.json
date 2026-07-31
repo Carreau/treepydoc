@@ -16,7 +16,7 @@
     "src/**"
   ],
   "devDependencies": {
-    "tree-sitter-cli": "^0.26.8"
+    "tree-sitter-cli": "0.26.11"
   },
   "scripts": {
     "generate": "tree-sitter generate",

@@ -1,5 +1,7 @@
 # treepydoc
 
+[![CI](https://github.com/carreau/treepydoc/actions/workflows/ci.yml/badge.svg)](https://github.com/carreau/treepydoc/actions/workflows/ci.yml)
+
 A [tree-sitter](https://tree-sitter.github.io) grammar and parser for
 [numpydoc](https://numpydoc.readthedocs.io) docstrings.
 
@@ -130,17 +132,29 @@ tools/fuzz.py           mutation fuzzer, same comparison on corrupted input
 tools/sphinx_compare.py end-to-end Sphinx build diff
 tools/numpydoc_swap.py  pytest plugin that swaps the parser in
 tools/run_numpydoc_suite.py  runs numpydoc's tests both ways and diffs
+tools/smoke_test.py     post-install check, imports nothing from the tree
+CMakeLists.txt          builds the extension; no setup.py
 treepydoc/sphinx.py     the Sphinx extension
 ```
 
 ## Building
 
+Packaging is [scikit-build-core](https://scikit-build-core.readthedocs.io) over
+CMake, declared entirely in `pyproject.toml` — there is no `setup.py`. The
+extension is built against the stable ABI, so one `cp39-abi3` wheel per platform
+covers every supported Python.
+
 ```sh
-npm install                 # tree-sitter CLI
+npm install                 # tree-sitter CLI, pinned exactly
 npx tree-sitter generate    # regenerate src/parser.c from grammar.js
 npx tree-sitter test        # corpus tests
-python3 -m pip install .    # build the Python extension and API
+python3 -m pip install .    # build the extension and the Python API
+python3 -m build            # sdist + abi3 wheel into dist/
 ```
+
+`src/parser.c` is committed, and CI regenerates it and fails on any diff — so
+the CLI version is pinned exactly, since a different one can emit a different
+parse table for the same grammar.
 
 Running the differential tests needs `numpydoc` importable:
 

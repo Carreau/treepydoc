@@ -125,12 +125,24 @@ could not.
 
 ## 6. Packaging
 
-- Wheels. The extension builds from source today; `cibuildwheel` config and an
-  abi3 target would make it installable.
-- A Rust/Node binding. `tree-sitter.json` declares only C and Python.
-- CI running all five suites (corpus, pytest, conformance, sweep, fuzz) plus
-  `sphinx_compare.py`. The sweep needs numpy/scipy/pandas, so it should be a
-  separate, slower job.
+Done: `pyproject.toml` + scikit-build-core over CMake, no `setup.py`, abi3
+wheels, and GitHub Actions running every suite (`grammar`, `build` across three
+OSes, `conformance`, `differential`, `lint`, `package`).
+
+Left:
+
+- **Publish.** `cibuildwheel` to build the per-platform abi3 wheels on a tag,
+  and a release job. The `package` job proves the sdist and wheel both install
+  and work, but nothing uploads them.
+- **A Rust/Node binding.** `tree-sitter.json` declares only C and Python.
+- **`ruff format`.** Deliberately not enforced: `tools/corpus.py` holds
+  docstring fixtures copied verbatim out of numpydoc's suite, and reformatting
+  risks perturbing the data under test. Adopting it means excluding that file
+  and accepting ~500 lines of churn elsewhere.
+- **The numpydoc pin is a CI variable.** `NUMPYDOC_REF` at the top of the
+  workflow. Once section 0 lands, CI should test against both the pinned commit
+  and numpydoc `main`, with the second one allowed to fail until `compat=`
+  exists.
 
 ---
 

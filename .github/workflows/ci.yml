@@ -1,0 +1,204 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # treepydoc is bug-compatible with a *version* of numpydoc, so every
+  # differential job compares against this exact commit. Bumping it is a
+  # deliberate act that will change conformance results -- see PLAN.md section 0.
+  NUMPYDOC_REPO: carreau/numpydoc
+  NUMPYDOC_REF: 4e7c5ad998de88cea965dbfb5c86da5dffb0f806
+
+jobs:
+  grammar:
+    name: grammar (generate + corpus)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: npm install
+
+      # The generated parser is committed, so it has to match the grammar it
+      # came from. The CLI is pinned exactly because a different version can
+      # emit a different parse table for the same grammar.
+      - name: src/ is up to date with grammar.js
+        run: |
+          npx tree-sitter generate
+          git diff --exit-code -- src/ \
+            || { echo "::error::src/ is stale; run 'npx tree-sitter generate' and commit"; exit 1; }
+
+      - name: corpus tests
+        run: npx tree-sitter test
+
+  build:
+    name: build (${{ matrix.os }}, py${{ matrix.python }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        # The extension is abi3, so it only needs proving against the oldest
+        # supported Python and the newest.
+        python: ["3.9", "3.13"]
+        exclude:
+          # setup-python has no 3.9 build for macOS arm64, which is what
+          # macos-latest is; the x86_64 runner still has one.
+          - os: macos-latest
+            python: "3.9"
+        include:
+          - os: macos-13
+            python: "3.9"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+
+      - run: python -m pip install --upgrade pip
+      - run: python -m pip install .[test]
+
+      # Run from elsewhere so the repo directory does not shadow the installed
+      # package. Without numpydoc the differential tests skip themselves; what
+      # this job proves is that the extension builds and imports everywhere.
+      - name: unit tests (no numpydoc)
+        working-directory: ${{ runner.temp }}
+        run: python -m pytest ${{ github.workspace }}/tests -q
+
+      - name: smoke test the installed package
+        working-directory: ${{ runner.temp }}
+        run: python ${{ github.workspace }}/tools/smoke_test.py
+
+  conformance:
+    name: conformance vs numpydoc
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: check out the pinned numpydoc
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.NUMPYDOC_REPO }}
+          ref: ${{ env.NUMPYDOC_REF }}
+          path: .numpydoc
+
+      - run: python -m pip install --upgrade pip
+      - run: python -m pip install .[test,sphinx]
+
+      - name: unit tests, including the differential cases
+        working-directory: ${{ runner.temp }}
+        run: python -m pytest ${{ github.workspace }}/tests -q
+        env:
+          PYTHONPATH: ${{ github.workspace }}/.numpydoc
+
+      - name: curated corpus, key by key
+        working-directory: ${{ runner.temp }}
+        run: python ${{ github.workspace }}/tools/conformance.py
+        env:
+          PYTHONPATH: ${{ github.workspace }}/.numpydoc
+
+      # The most demanding check: numpydoc's own suite, on this parser. The bar
+      # is "the same tests pass and the same tests fail", because that checkout
+      # has pre-existing failures under a modern Python and a newer Sphinx.
+      - name: numpydoc's own test suite
+        run: python tools/run_numpydoc_suite.py
+        env:
+          NUMPYDOC_PATH: ${{ github.workspace }}/.numpydoc
+
+      - name: end-to-end Sphinx build, both parsers
+        working-directory: ${{ runner.temp }}
+        run: python ${{ github.workspace }}/tools/sphinx_compare.py
+        env:
+          NUMPYDOC_PATH: ${{ github.workspace }}/.numpydoc
+
+  differential:
+    name: real-world sweep + fuzz
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: check out the pinned numpydoc
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.NUMPYDOC_REPO }}
+          ref: ${{ env.NUMPYDOC_REF }}
+          path: .numpydoc
+
+      - run: python -m pip install --upgrade pip
+      - run: python -m pip install . numpy scipy pandas
+
+      - name: every public docstring in numpy, scipy and pandas
+        working-directory: ${{ runner.temp }}
+        run: python ${{ github.workspace }}/tools/sweep.py
+        env:
+          PYTHONPATH: ${{ github.workspace }}/.numpydoc
+
+      - name: mutation fuzz
+        working-directory: ${{ runner.temp }}
+        run: python ${{ github.workspace }}/tools/fuzz.py --seeds 300 --mutants 10
+        env:
+          PYTHONPATH: ${{ github.workspace }}/.numpydoc
+
+  lint:
+    name: lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - run: python -m pip install ruff
+      - run: ruff check .
+      # No `ruff format` check on purpose: `tools/corpus.py` holds docstring
+      # fixtures copied verbatim out of numpydoc's test suite, and reformatting
+      # is not worth the risk of perturbing the data under test.
+
+      # Only the hand-written scanner; src/parser.c is generated.
+      - name: scanner builds clean at -Wall -Wextra
+        run: gcc -c -std=c11 -Wall -Wextra -Werror -Isrc -o /dev/null src/scanner.c
+
+  package:
+    name: sdist + abi3 wheel
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.9"
+
+      - run: python -m pip install build
+      - run: python -m build --sdist --wheel --outdir dist .
+
+      - name: the wheel installs and works from a clean interpreter
+        working-directory: ${{ runner.temp }}
+        run: |
+          python -m pip install "${{ github.workspace }}"/dist/*.whl
+          python "${{ github.workspace }}/tools/smoke_test.py"
+
+      - name: and so does the sdist
+        working-directory: ${{ runner.temp }}
+        run: |
+          python -m pip install --force-reinstall --no-binary :all: \
+            "${{ github.workspace }}"/dist/*.tar.gz
+          python "${{ github.workspace }}/tools/smoke_test.py"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/

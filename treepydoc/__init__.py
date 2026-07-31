@@ -19,8 +19,9 @@ import warnings
 from collections import namedtuple
 from collections.abc import Callable, Mapping
 
-import tree_sitter
 import tree_sitter_numpydoc
+
+import tree_sitter
 
 __all__ = [
     "NumpyDocString",
@@ -96,7 +97,7 @@ def indent(str, indent=4):
     if str is None:
         return indent_str
     lines = str.split("\n")
-    return "\n".join(indent_str + l for l in lines)
+    return "\n".join(indent_str + line for line in lines)
 
 
 def header(text, style="-"):
