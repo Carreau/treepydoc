@@ -11,15 +11,32 @@ Use `parse()` when you want the tree itself.
 from __future__ import annotations
 
 import copy
+import inspect
+import pydoc
+import sys
 import textwrap
 import warnings
 from collections import namedtuple
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 
 import tree_sitter
 import tree_sitter_numpydoc
 
-__all__ = ["NumpyDocString", "Parameter", "ParseError", "parse", "language"]
+__all__ = [
+    "NumpyDocString",
+    "FunctionDoc",
+    "ClassDoc",
+    "ObjDoc",
+    "Parameter",
+    "ParseError",
+    "get_doc_object",
+    "parse",
+    "language",
+    "dedent_lines",
+    "strip_blank_lines",
+    "indent",
+    "header",
+]
 
 Parameter = namedtuple("Parameter", ["name", "type", "desc"])
 
@@ -72,6 +89,18 @@ def strip_blank_lines(lines):
 def dedent_lines(lines):
     """Deindent a list of lines maximally."""
     return textwrap.dedent("\n".join(lines)).split("\n")
+
+
+def indent(str, indent=4):
+    indent_str = " " * indent
+    if str is None:
+        return indent_str
+    lines = str.split("\n")
+    return "\n".join(indent_str + l for l in lines)
+
+
+def header(text, style="-"):
+    return text + "\n" + style * len(text) + "\n"
 
 
 def _collapse_blanks(lines):
@@ -128,6 +157,16 @@ def _children(node, type_):
     return [c for c in node.named_children if c.type == type_]
 
 
+def _see_also_item_parses(line: str) -> bool:
+    """Would `_parse_see_also` accept this line as an item?
+
+    Answered by parsing it as a one-line See Also body, so the rule stays in
+    one place -- the scanner -- instead of being duplicated here.
+    """
+    probe = "See Also\n--------\n%s\n" % line
+    return not _parser().parse(probe.encode("utf-8")).root_node.has_error
+
+
 class NumpyDocString(Mapping):
     """Parses a numpydoc string to an abstract representation."""
 
@@ -154,6 +193,9 @@ class NumpyDocString(Mapping):
 
     _param_sections = ("Parameters", "Other Parameters", "Attributes", "Methods")
     _typed_sections = ("Returns", "Yields", "Raises", "Warns", "Receives")
+
+    # What `_str_see_also` renders for an entry with no description.
+    empty_description = ".."
 
     def __init__(self, docstring, config=None):
         orig_docstring = docstring
@@ -196,16 +238,12 @@ class NumpyDocString(Mapping):
         preamble = _child(root, "preamble")
 
         # A See Also line that is neither a continuation nor a parsable item
-        # leaves an ERROR node where the entry would have been; numpydoc raises
-        # ParseError at exactly that point.
-        previous = None
-        for node in root.named_children:
-            if node.type == "ERROR":
-                if previous is not None and previous.type == "see_also_section":
-                    line = self._src.lines[node.start_point[0]]
-                    raise ParseError("%s is not a item name" % line)
-            else:
-                previous = node
+        # makes numpydoc raise ParseError. Here it leaves an ERROR node, which
+        # may swallow the whole section, so the offending line is located
+        # explicitly rather than read off the error's position.
+        error = self._see_also_parse_error()
+        if error is not None:
+            raise error
 
         sections = [
             c for c in root.named_children
@@ -240,6 +278,56 @@ class NumpyDocString(Mapping):
                 self[name] = self._parse_see_also(node)
             else:
                 self[name] = self._section_body(node)
+
+    def _see_also_parse_error(self):
+        """The `ParseError` numpydoc would raise for a See Also body, or None.
+
+        `_parse_see_also` rejects a line that is neither indented (a
+        continuation, which never fails) nor matched by its item regex. Rather
+        than reimplement that regex, each suspect line is probed through the
+        grammar itself, which is where the rule already lives.
+        """
+        if not self._tree.root_node.has_error:
+            return None
+
+        for title_row in self._see_also_title_rows():
+            for row in range(title_row + 2, len(self._src.lines)):
+                line = self._src.lines[row]
+                if not line.strip():
+                    continue
+                if line.startswith(" ") or line.startswith("\t"):
+                    continue  # a continuation; numpydoc never fails on one
+                if self._is_section_header(row):
+                    break  # the body ended before anything went wrong
+                if not _see_also_item_parses(line):
+                    return ParseError("%s is not a item name" % line)
+        return None
+
+    def _see_also_title_rows(self) -> list[int]:
+        """Rows holding a See Also title, whether or not the section parsed."""
+        rows = []
+        stack = [self._tree.root_node]
+        while stack:
+            node = stack.pop()
+            if node.type == "section_name":
+                name = " ".join(
+                    part.capitalize()
+                    for part in self._src.node_text(node).split(" ")
+                )
+                if name == "See Also":
+                    rows.append(node.start_point[0])
+            stack.extend(node.children)
+        return sorted(rows)
+
+    def _is_section_header(self, row: int) -> bool:
+        """`_is_at_section`'s underline rule, applied at one row."""
+        title = self._src.lines[row].strip()
+        if row + 1 >= len(self._src.lines) or not title:
+            return False
+        underline = self._src.lines[row + 1].strip()
+        return underline.startswith("-" * len(title)) or underline.startswith(
+            "=" * len(title)
+        )
 
     def _section_name(self, node) -> str:
         raw = self._src.node_text(node.child_by_field_name("name"))
@@ -397,3 +485,306 @@ class NumpyDocString(Mapping):
             raise ValueError(msg)
         else:
             warnings.warn(msg)
+
+    # ------------------------------------------------- string conversion
+
+    # These reproduce `docscrape.py`'s rendering exactly, because
+    # `numpydoc.docscrape_sphinx.SphinxDocString` subclasses `NumpyDocString`
+    # and calls into them (`_str_header`, `_str_indent`, `_str_see_also`, ...)
+    # while overriding others. Rendering has to come from the same place as the
+    # parse for a Sphinx build to be byte-identical.
+
+    def _str_header(self, name, symbol="-"):
+        return [name, len(name) * symbol]
+
+    def _str_indent(self, doc, indent=4):
+        out = []
+        for line in doc:
+            out += [" " * indent + line]
+        return out
+
+    def _str_signature(self):
+        if self["Signature"]:
+            return [self["Signature"].replace("*", r"\*")] + [""]
+        else:
+            return [""]
+
+    def _str_summary(self):
+        if self["Summary"]:
+            return self["Summary"] + [""]
+        else:
+            return []
+
+    def _str_extended_summary(self):
+        if self["Extended Summary"]:
+            return self["Extended Summary"] + [""]
+        else:
+            return []
+
+    def _str_param_list(self, name):
+        out = []
+        if self[name]:
+            out += self._str_header(name)
+            for param in self[name]:
+                parts = []
+                if param.name:
+                    parts.append(param.name)
+                if param.type:
+                    parts.append(param.type)
+                out += [" : ".join(parts)]
+                if param.desc and "".join(param.desc).strip():
+                    out += self._str_indent(param.desc)
+            out += [""]
+        return out
+
+    def _str_section(self, name):
+        out = []
+        if self[name]:
+            out += self._str_header(name)
+            out += self[name]
+            out += [""]
+        return out
+
+    def _str_see_also(self, func_role):
+        if not self["See Also"]:
+            return []
+        out = []
+        out += self._str_header("See Also")
+        out += [""]
+        last_had_desc = True
+        for funcs, desc in self["See Also"]:
+            assert isinstance(funcs, list)
+            links = []
+            for func, role in funcs:
+                if role:
+                    link = ":%s:`%s`" % (role, func)
+                elif func_role:
+                    link = ":%s:`%s`" % (func_role, func)
+                else:
+                    link = "`%s`_" % func
+                links.append(link)
+            link = ", ".join(links)
+            out += [link]
+            if desc:
+                out += self._str_indent([" ".join(desc)])
+                last_had_desc = True
+            else:
+                last_had_desc = False
+                out += self._str_indent([self.empty_description])
+
+        if last_had_desc:
+            out += [""]
+        out += [""]
+        return out
+
+    def _str_index(self):
+        idx = self["index"]
+        out = []
+        output_index = False
+        default_index = idx.get("default", "")
+        if default_index:
+            output_index = True
+        out += [".. index:: %s" % default_index]
+        for section, references in idx.items():
+            if section == "default":
+                continue
+            output_index = True
+            out += ["   :%s: %s" % (section, ", ".join(references))]
+        if output_index:
+            return out
+        else:
+            return ""
+
+    def __str__(self, func_role=""):
+        out = []
+        out += self._str_signature()
+        out += self._str_summary()
+        out += self._str_extended_summary()
+        for param_list in (
+            "Parameters",
+            "Returns",
+            "Yields",
+            "Receives",
+            "Other Parameters",
+            "Raises",
+            "Warns",
+        ):
+            out += self._str_param_list(param_list)
+        out += self._str_section("Warnings")
+        out += self._str_see_also(func_role)
+        for s in ("Notes", "References", "Examples"):
+            out += self._str_section(s)
+        for param_list in ("Attributes", "Methods"):
+            out += self._str_param_list(param_list)
+        out += self._str_index()
+        return "\n".join(out)
+
+
+class FunctionDoc(NumpyDocString):
+    def __init__(self, func, role="func", doc=None, config=None):
+        self._f = func
+        self._role = role  # e.g. "func" or "meth"
+
+        if doc is None:
+            if func is None:
+                raise ValueError("No function or docstring given")
+            doc = inspect.getdoc(func) or ""
+        NumpyDocString.__init__(self, doc, config)
+
+    def get_func(self):
+        func_name = getattr(self._f, "__name__", self.__class__.__name__)
+        if inspect.isclass(self._f):
+            func = getattr(self._f, "__call__", self._f.__init__)
+        else:
+            func = self._f
+        return func, func_name
+
+    def __str__(self):
+        out = ""
+
+        func, func_name = self.get_func()
+
+        roles = {"func": "function", "meth": "method"}
+
+        if self._role:
+            if self._role not in roles:
+                print("Warning: invalid role %s" % self._role)
+            out += ".. %s:: %s\n    \n\n" % (roles.get(self._role, ""), func_name)
+
+        out += super(FunctionDoc, self).__str__(func_role=self._role)
+        return out
+
+
+class ClassDoc(NumpyDocString):
+
+    extra_public_methods = ["__call__"]
+
+    def __init__(self, cls, doc=None, modulename="", func_doc=FunctionDoc,
+                 config=None):
+        if not inspect.isclass(cls) and cls is not None:
+            raise ValueError("Expected a class or None, but got %r" % cls)
+        self._cls = cls
+
+        if "sphinx" in sys.modules:
+            from sphinx.ext.autodoc import ALL
+        else:
+            ALL = object()
+
+        config = {} if config is None else config
+        self.show_inherited_members = config.get("show_inherited_class_members", True)
+
+        if modulename and not modulename.endswith("."):
+            modulename += "."
+        self._mod = modulename
+
+        if doc is None:
+            if cls is None:
+                raise ValueError("No class or documentation string given")
+            doc = pydoc.getdoc(cls)
+
+        NumpyDocString.__init__(self, doc)
+
+        _members = config.get("members", [])
+        if _members is ALL:
+            _members = None
+        _exclude = config.get("exclude-members", [])
+
+        if config.get("show_class_members", True) and _exclude is not ALL:
+
+            def splitlines_x(s):
+                if not s:
+                    return []
+                else:
+                    return s.splitlines()
+
+            for field, items in [
+                ("Methods", self.methods),
+                ("Attributes", self.properties),
+            ]:
+                if not self[field]:
+                    doc_list = []
+                    for name in sorted(items):
+                        if name in _exclude or (_members and name not in _members):
+                            continue
+                        try:
+                            doc_item = pydoc.getdoc(getattr(self._cls, name))
+                            doc_list.append(Parameter(name, "", splitlines_x(doc_item)))
+                        except AttributeError:
+                            pass  # method doesn't exist
+                    self[field] = doc_list
+
+    @property
+    def methods(self):
+        if self._cls is None:
+            return []
+        return [
+            name
+            for name, func in inspect.getmembers(self._cls)
+            if (
+                (not name.startswith("_") or name in self.extra_public_methods)
+                and isinstance(func, Callable)
+                and self._is_show_member(name)
+            )
+        ]
+
+    @property
+    def properties(self):
+        if self._cls is None:
+            return []
+        return [
+            name
+            for name, func in inspect.getmembers(self._cls)
+            if (
+                not name.startswith("_")
+                and (
+                    func is None
+                    or isinstance(func, property)
+                    or inspect.isdatadescriptor(func)
+                )
+                and self._is_show_member(name)
+            )
+        ]
+
+    def _is_show_member(self, name):
+        if self.show_inherited_members:
+            return True  # show all class members
+        if name not in self._cls.__dict__:
+            return False  # class member is inherited, we do not show it
+        return True
+
+
+class ObjDoc(NumpyDocString):
+    """Anything that is neither a class nor a callable."""
+
+    def __init__(self, obj, doc=None, config=None):
+        self._f = obj
+        NumpyDocString.__init__(self, doc or "", config=config)
+
+
+def get_doc_object(obj, what=None, doc=None, config=None):
+    """Dispatch to the right documenter, the way numpydoc's Sphinx layer does.
+
+    This is the plain-text counterpart of
+    `numpydoc.docscrape_sphinx.get_doc_object`; see `treepydoc.sphinx` for the
+    Sphinx-rendering one.
+    """
+    if what is None:
+        if inspect.isclass(obj):
+            what = "class"
+        elif inspect.ismodule(obj):
+            what = "module"
+        elif isinstance(obj, Callable):
+            what = "function"
+        else:
+            what = "object"
+
+    config = {} if config is None else config
+
+    if what == "class":
+        return ClassDoc(obj, func_doc=FunctionDoc, doc=doc, config=config)
+    elif what in ("function", "method"):
+        return FunctionDoc(obj, doc=doc, config=config)
+    else:
+        if doc is None:
+            doc = pydoc.getdoc(obj)
+        return ObjDoc(obj, doc, config=config)

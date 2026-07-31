@@ -491,3 +491,176 @@ def test_incremental_reparse_matches_a_fresh_parse():
 
     assert str(reparsed.root_node) == str(fresh.root_node)
     assert not list(all_errors(reparsed.root_node))
+
+
+# ----------------------------------------------------- numpydoc object API
+
+
+class _Sample:
+    """A sample class.
+
+    Parameters
+    ----------
+    x : int
+        A thing.
+
+    See Also
+    --------
+    other : Something else.
+
+    Notes
+    -----
+    Note text.
+    """
+
+    attribute = 1
+
+    def method(self, a):
+        """Do a thing.
+
+        Parameters
+        ----------
+        a : str
+            The a.
+
+        Returns
+        -------
+        int
+            The result.
+        """
+
+
+def _sample_function(x):
+    """Compute something.
+
+    Parameters
+    ----------
+    x : int
+        In.
+
+    Returns
+    -------
+    out : int
+        Out.
+    """
+
+
+def test_function_doc_and_class_doc_exist():
+    assert treepydoc.FunctionDoc(_sample_function)["Parameters"][0].name == "x"
+    assert treepydoc.ClassDoc(_Sample)["Parameters"][0].name == "x"
+    assert treepydoc.ObjDoc(object(), "Summary.\n")["Summary"] == ["Summary."]
+
+
+def test_get_doc_object_dispatches_on_kind():
+    assert isinstance(treepydoc.get_doc_object(_Sample), treepydoc.ClassDoc)
+    assert isinstance(treepydoc.get_doc_object(_sample_function), treepydoc.FunctionDoc)
+    assert isinstance(treepydoc.get_doc_object(42, doc="Doc.\n"), treepydoc.ObjDoc)
+
+
+def test_str_round_trip_matches_numpydoc():
+    r"""Reparsing rendered output must behave the same in both implementations.
+
+    It is not always parseable: with no `func_role`, `_str_see_also` renders a
+    target as ``\`scipy.stats\`_``, and backticks are not in the character class
+    See Also accepts, so numpydoc cannot read back what it just wrote. What
+    matters here is that treepydoc fails in exactly the same place.
+    """
+    docscrape = pytest.importorskip("numpydoc.docscrape")
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        rendered = str(treepydoc.NumpyDocString(REPRESENTATIVE_DOC))
+        assert rendered == str(docscrape.NumpyDocString(REPRESENTATIVE_DOC))
+
+        try:
+            expected = dict(docscrape.NumpyDocString(rendered))
+        except docscrape.ParseError as exc:
+            with pytest.raises(treepydoc.ParseError) as caught:
+                treepydoc.NumpyDocString(rendered)
+            assert caught.value.args[0] == exc.args[0]
+        else:
+            assert dict(treepydoc.NumpyDocString(rendered)) == expected
+
+
+def test_str_round_trip_is_reparseable_without_see_also():
+    """Without the See Also rendering wart, rendering does round-trip."""
+    doc = treepydoc.NumpyDocString(
+        "Summary.\n\nParameters\n----------\nx : int\n    A thing.\n"
+    )
+    again = treepydoc.NumpyDocString(str(doc))
+    assert again["Parameters"] == doc["Parameters"]
+
+
+@pytest.mark.parametrize("name,text", _load_corpus().CORPUS)
+def test_str_rendering_matches_numpydoc(name, text):
+    docscrape = pytest.importorskip("numpydoc.docscrape")
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        assert str(treepydoc.NumpyDocString(text)) == str(docscrape.NumpyDocString(text))
+
+
+@pytest.mark.parametrize("kind", ["function", "class"])
+def test_object_doc_rendering_matches_numpydoc(kind):
+    docscrape = pytest.importorskip("numpydoc.docscrape")
+    obj = _sample_function if kind == "function" else _Sample
+    cls = "FunctionDoc" if kind == "function" else "ClassDoc"
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        assert str(getattr(treepydoc, cls)(obj)) == str(getattr(docscrape, cls)(obj))
+
+
+# ------------------------------------------------------------ sphinx layer
+
+
+def test_sphinx_extension_renders_like_numpydoc():
+    """The Sphinx layer must be swap-in: same directives, same text."""
+    numpydoc_sphinx = pytest.importorskip("numpydoc.docscrape_sphinx")
+    from treepydoc import sphinx as treepydoc_sphinx
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        for obj, ours, theirs in (
+            (
+                _sample_function,
+                treepydoc_sphinx.SphinxFunctionDoc,
+                numpydoc_sphinx.SphinxFunctionDoc,
+            ),
+            (_Sample, treepydoc_sphinx.SphinxClassDoc, numpydoc_sphinx.SphinxClassDoc),
+        ):
+            assert str(ours(obj)) == str(theirs(obj))
+
+        assert str(treepydoc_sphinx.SphinxDocString(REPRESENTATIVE_DOC)) == str(
+            numpydoc_sphinx.SphinxDocString(REPRESENTATIVE_DOC)
+        )
+
+
+def test_sphinx_setup_uses_numpydocs_extension_point():
+    """`setup` must go through numpydoc's hook rather than patching anything."""
+    pytest.importorskip("numpydoc.numpydoc")
+    from numpydoc import numpydoc as numpydoc_ext
+
+    from treepydoc import sphinx as treepydoc_sphinx
+
+    class FakeApp:
+        def __init__(self):
+            self.connected = []
+
+        def add_config_value(self, *args, **kwargs):
+            pass
+
+        def setup_extension(self, name):
+            pass
+
+        def connect(self, event, handler):
+            self.connected.append(event)
+
+        def add_domain(self, *args, **kwargs):
+            pass
+
+        def add_directive(self, *args, **kwargs):
+            pass
+
+    app = FakeApp()
+    treepydoc_sphinx.setup(app)
+    assert "autodoc-process-docstring" in app.connected
+    # numpydoc's module global is what mangle_docstrings actually calls.
+    assert numpydoc_ext.get_doc_object is treepydoc_sphinx.get_doc_object

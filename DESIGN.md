@@ -209,9 +209,13 @@ An underline with arbitrary garbage appended, meanwhile, is accepted without
 comment.
 
 Reporting a diagnostic on a *near-miss* underline (a line of adornment
-characters directly under a plausible title, but too short) would catch a real
-class of bug. The tree makes that easy to write as a query; numpydoc's
-architecture does not.
+characters directly under a plausible title, but too short) catches a real class
+of bug. Scanning 9917 docstrings from numpy, scipy and pandas with such a check
+produces **two warnings, both genuine**: `scipy.stats.matrix_t_gen.logpdf`
+silently loses its `Examples` section and `pandas.core.groupby.Grouping` silently
+loses its `Attributes` section, each to an underline three characters short. No
+false positives. The check is implemented on the numpydoc branch; the tree also
+makes it expressible as a query.
 
 ### 2.5 `.. index::` must be spelled exactly
 

@@ -33,6 +33,7 @@ asserted:
 | numpydoc's own `test_docscrape.py` docstrings + 33 edge cases | **82 / 82 identical** |
 | every public docstring in numpy, scipy and pandas | **9904 / 9904 identical** |
 | 10 900 mutation-fuzzed docstrings, 3 seeds | **0 disagreements**, no hangs |
+| a full Sphinx build of numpydoc's `tinybuild` | **6 / 6 pages byte-identical** |
 
 Both suites compare the complete mapping, all 18 keys, down to the exact
 list-of-lines representation of every description.
@@ -41,12 +42,39 @@ list-of-lines representation of every description.
 ./run_conformance.sh                 # curated corpus
 python3 tools/sweep.py               # numpy + scipy + pandas
 python3 tools/fuzz.py                # corrupt real docstrings, compare again
+python3 tools/sphinx_compare.py      # build tinybuild both ways, diff the HTML
 ```
+
+Point `NUMPYDOC_PATH` at a **pinned** numpydoc checkout. treepydoc is
+bug-compatible with a *version* of numpydoc, so comparing against a working tree
+that is being patched reports upstream fixes as failures — see
+[PLAN.md](PLAN.md) §0.
 
 Equivalence includes the bugs. `numpydoc` truncates
 `x : dict of {str : int}` to a type of `dict of {str`, and so does this. See
 [DESIGN.md](DESIGN.md) for the full list of reproduced warts and why each one is
 worth questioning.
+
+## Using it with Sphinx
+
+`treepydoc.sphinx` is a Sphinx extension that swaps the parser and changes
+nothing else — every `numpydoc_*` config value, the templates and the emitted
+reStructuredText stay as they were:
+
+```python
+extensions = ["treepydoc.sphinx"]   # instead of "numpydoc"
+```
+
+It goes through `numpydoc.numpydoc.setup(app, get_doc_object_=...)`, which is a
+documented extension point, so nothing is monkeypatched. numpydoc's Sphinx
+classes are *rendering* — they subclass `NumpyDocString` and override the
+`_str_*` methods — so that rendering is reused as-is and only the parse
+underneath changes. `tools/sphinx_compare.py` builds numpydoc's own tinybuild
+project both ways and byte-compares the generated HTML.
+
+The plain object API matches too, for callers that use it directly:
+`FunctionDoc`, `ClassDoc`, `ObjDoc`, `get_doc_object`, and the full set of
+`_str_*` rendering methods.
 
 ## Why a tree
 
@@ -73,6 +101,8 @@ tools/corpus.py         the curated docstring corpus
 tools/conformance.py    differential test against numpydoc
 tools/sweep.py          differential test over installed packages
 tools/fuzz.py           mutation fuzzer, same comparison on corrupted input
+tools/sphinx_compare.py end-to-end Sphinx build diff
+treepydoc/sphinx.py     the Sphinx extension
 ```
 
 ## Building
@@ -97,6 +127,12 @@ parsing, and then treats column 0 as the structural anchor. The grammar inherits
 that contract: it parses dedented text, and `treepydoc.parse()` applies the
 dedent for you. Tree positions therefore refer to the dedented string rather
 than the original — see [DESIGN.md](DESIGN.md) §1.
+
+## What's next
+
+[PLAN.md](PLAN.md). The headline item: bug-compatibility is currently pinned to
+one numpydoc commit by convention rather than by construction, and it should be
+an explicit `compat=` choice instead.
 
 ## License
 
