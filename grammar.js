@@ -224,9 +224,11 @@ module.exports = grammar({
     // `x : int : leftover` keeps `x` and `int` and throws `leftover` away,
     // because numpydoc does `header.split(' : ')[:2]`. The grammar keeps the
     // discarded text as a node so tooling can point at it.
+    // The type is optional because `split` can produce an empty field:
+    // `a :  : b` splits to `['a', '', 'b']`, so the type really is `''`.
     _entry_tail: $ => seq(
       alias($._entry_separator, $.separator),
-      field('type', alias($._entry_second, $.type)),
+      optional(field('type', alias($._entry_second, $.type))),
       optional(seq(
         alias($._entry_separator, $.separator),
         field('discarded', alias($._entry_discarded, $.discarded)),
@@ -277,12 +279,14 @@ module.exports = grammar({
 
     see_also_target: $ => choice($.role_target, $.plain_target),
 
+    // `\w` in numpydoc's regexes is Python's, which is Unicode-aware;
+    // tree-sitter's `\w` is ASCII, so the class is spelled out.
     role_target: $ => seq(
       ':',
-      field('role', alias(/\w+/, $.role)),
+      field('role', alias(/[\p{L}\p{N}_]+/, $.role)),
       ':',
       '`',
-      field('name', alias(/(?:~\w+\.)?[a-zA-Z0-9_.-]+/, $.name)),
+      field('name', alias(/(?:~[\p{L}\p{N}_]+\.)?[a-zA-Z0-9_.-]+/, $.name)),
       '`',
     ),
 

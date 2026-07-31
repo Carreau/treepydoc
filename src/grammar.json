@@ -709,17 +709,25 @@
           "value": "separator"
         },
         {
-          "type": "FIELD",
-          "name": "type",
-          "content": {
-            "type": "ALIAS",
-            "content": {
-              "type": "SYMBOL",
-              "name": "_entry_second"
+          "type": "CHOICE",
+          "members": [
+            {
+              "type": "FIELD",
+              "name": "type",
+              "content": {
+                "type": "ALIAS",
+                "content": {
+                  "type": "SYMBOL",
+                  "name": "_entry_second"
+                },
+                "named": true,
+                "value": "type"
+              }
             },
-            "named": true,
-            "value": "type"
-          }
+            {
+              "type": "BLANK"
+            }
+          ]
         },
         {
           "type": "CHOICE",
@@ -981,7 +989,7 @@
             "type": "ALIAS",
             "content": {
               "type": "PATTERN",
-              "value": "\\w+"
+              "value": "[\\p{L}\\p{N}_]+"
             },
             "named": true,
             "value": "role"
@@ -1002,7 +1010,7 @@
             "type": "ALIAS",
             "content": {
               "type": "PATTERN",
-              "value": "(?:~\\w+\\.)?[a-zA-Z0-9_.-]+"
+              "value": "(?:~[\\p{L}\\p{N}_]+\\.)?[a-zA-Z0-9_.-]+"
             },
             "named": true,
             "value": "name"

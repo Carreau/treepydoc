@@ -67,16 +67,30 @@ static inline bool is_space(int32_t c) { return c == ' ' || c == '\t'; }
 
 static inline bool is_newline(int32_t c) { return c == '\n' || c == '\r'; }
 
-// Python's `\w`, restricted to ASCII. Section names, roles and identifiers in
-// numpydoc's regexes are ASCII in practice.
-static inline bool is_word(int32_t c) {
-  return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') ||
-         (c >= '0' && c <= '9') || c == '_';
+// What `str.strip()` removes from the ends of a line, minus the line
+// terminators, which end the line anyway.
+static inline bool is_strippable(int32_t c) {
+  return c == ' ' || c == '\t' || c == '\f' || c == '\v';
 }
 
-// `[a-zA-Z0-9_.-]`, the class numpydoc uses for See Also targets.
+// Every non-ASCII code point is folded to this byte in the line buffer, so
+// that buffer offsets count code points the way Python's `len()` does.
+#define NON_ASCII 0x80
+
+// Python's `\w` is Unicode-aware, so a role like `:méth:` matches. The buffer
+// cannot tell a letter from a symbol once folded, so every non-ASCII code point
+// counts as a word character -- an over-approximation, but far closer than
+// restricting `\w` to ASCII.
+static inline bool is_word(int32_t c) {
+  return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') ||
+         (c >= '0' && c <= '9') || c == '_' || (unsigned char)c == NON_ASCII;
+}
+
+// `[a-zA-Z0-9_.-]`, the class numpydoc uses for See Also targets. Unlike `\w`
+// this one is written out literally, so it stays ASCII.
 static inline bool is_name_char(int32_t c) {
-  return is_word(c) || c == '.' || c == '-';
+  return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') ||
+         (c >= '0' && c <= '9') || c == '_' || c == '.' || c == '-';
 }
 
 static inline char lower(char c) { return (c >= 'A' && c <= 'Z') ? c + 32 : c; }
@@ -86,23 +100,33 @@ static inline char lower(char c) { return (c >= 'A' && c <= 'Z') ? c + 32 : c; }
 typedef struct {
   char data[LINE_CAPACITY];
   uint32_t len;
+  // Code points seen so far, which exceeds `len` once the buffer overflows.
+  uint32_t count;
+  // Code points past the last non-space character, counted over the whole line
+  // even when it overflows the buffer, so that `header.strip()`'s end position
+  // is right for lines longer than `LINE_CAPACITY`.
+  uint32_t content_end;
   bool truncated;
 } Line;
 
 static void line_push(Line *line, int32_t c) {
+  line->count++;
+  if (!is_strippable(c)) line->content_end = line->count;
   if (line->len + 1 >= LINE_CAPACITY) {
     line->truncated = true;
     return;
   }
   // Non-ASCII code points fold to one placeholder byte so that `len` counts
   // code points, matching Python's `len()`. Only ASCII is compared byte-wise.
-  line->data[line->len++] = (c >= 0 && c < 128) ? (char)c : (char)0x80;
+  line->data[line->len++] = (c >= 0 && c < 128) ? (char)c : (char)NON_ASCII;
   line->data[line->len] = '\0';
 }
 
 // Consumes the rest of the current line, excluding its terminator.
 static void read_line(TSLexer *lexer, Line *line) {
   line->len = 0;
+  line->count = 0;
+  line->content_end = 0;
   line->truncated = false;
   line->data[0] = '\0';
   while (!lexer->eof(lexer) && !is_newline(lexer->lookahead)) {
@@ -129,14 +153,8 @@ static bool consume_line_terminator(TSLexer *lexer) {
 static void line_strip(const Line *line, uint32_t *start, uint32_t *end) {
   uint32_t s = 0;
   uint32_t e = line->len;
-  while (s < e && (line->data[s] == ' ' || line->data[s] == '\t' ||
-                   line->data[s] == '\f' || line->data[s] == '\v')) {
-    s++;
-  }
-  while (e > s && (line->data[e - 1] == ' ' || line->data[e - 1] == '\t' ||
-                   line->data[e - 1] == '\f' || line->data[e - 1] == '\v')) {
-    e--;
-  }
+  while (s < e && is_strippable(line->data[s])) s++;
+  while (e > s && is_strippable(line->data[e - 1])) e--;
   *start = s;
   *end = e;
 }
@@ -325,7 +343,7 @@ static bool scan_entry_field(TSLexer *lexer, enum TokenType symbol,
   // loses its leading whitespace. `x :  int` really does yield a type of
   // `' int'`, space included.
   if (symbol == ENTRY_FIRST) {
-    while (is_space(lexer->lookahead)) lexer->advance(lexer, true);
+    while (is_strippable(lexer->lookahead)) lexer->advance(lexer, true);
   }
 
   bool any = false;
@@ -352,6 +370,12 @@ static bool scan_entry_field(TSLexer *lexer, enum TokenType symbol,
       }
       continue;
     }
+    if (is_strippable(lexer->lookahead)) {
+      // Only a space can open a separator, and whitespace that turns out to be
+      // trailing must stay outside the token, so leave the mark where it is.
+      lexer->advance(lexer, false);
+      continue;
+    }
     lexer->advance(lexer, false);
     lexer->mark_end(lexer);
     any = true;
@@ -366,7 +390,7 @@ static bool scan_entry_field(TSLexer *lexer, enum TokenType symbol,
 static bool scan_entry_discarded(TSLexer *lexer) {
   bool any = false;
   while (!lexer->eof(lexer) && !is_newline(lexer->lookahead)) {
-    if (is_space(lexer->lookahead)) {
+    if (is_strippable(lexer->lookahead)) {
       lexer->advance(lexer, false);
       continue;
     }
@@ -572,12 +596,12 @@ bool tree_sitter_numpydoc_external_scanner_scan(void *payload, TSLexer *lexer,
       return true;
     }
     if (valid_symbols[ENTRY_START]) {
-      scanner->header_end = (uint16_t)(indent_columns + end);
+      scanner->header_end = (uint16_t)(indent_columns + line.content_end);
       lexer->result_symbol = ENTRY_START;
       return true;
     }
   } else if (valid_symbols[ENTRY_START]) {
-    scanner->header_end = (uint16_t)(indent_columns + end);
+    scanner->header_end = (uint16_t)(indent_columns + line.content_end);
     lexer->result_symbol = ENTRY_START;
     return true;
   }

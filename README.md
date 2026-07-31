@@ -31,8 +31,8 @@ asserted:
 | Suite | Result |
 | --- | --- |
 | numpydoc's own `test_docscrape.py` docstrings + 33 edge cases | **82 / 82 identical** |
-| every public docstring in numpy, scipy and pandas | **9865 / 9865 identical** |
-| 4800 mutation-fuzzed docstrings | **0 disagreements**, no hangs |
+| every public docstring in numpy, scipy and pandas | **9904 / 9904 identical** |
+| 10 900 mutation-fuzzed docstrings, 3 seeds | **0 disagreements**, no hangs |
 
 Both suites compare the complete mapping, all 18 keys, down to the exact
 list-of-lines representation of every description.

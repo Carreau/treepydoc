@@ -331,22 +331,35 @@ Two levels, both reproducible:
   numpydoc's own `test_docscrape.py` plus 33 hand-written edge cases, compared
   key-by-key against `NumpyDocString`. Includes the five docstrings numpydoc
   rejects, which must be rejected identically.
-- `tools/sweep.py` — every public docstring in numpy, scipy and pandas: **9865
-  docstrings, 9865 identical**, with 13 rejected the same way by both parsers.
-
+- `tools/sweep.py` — every public docstring in numpy, scipy and pandas: **9904
+  docstrings, 9904 identical**, with 13 rejected the same way by both parsers.
 - `tools/fuzz.py` — takes real docstrings and corrupts the characters that carry
   structure (`-`, `=`, `:`, whitespace, newlines), then runs the same
-  comparison: **4800 mutants, 0 disagreements**, 110 rejected identically by
-  both. This is also the cheapest way to catch a scanner that loops forever,
-  which is the characteristic failure of an external scanner emitting a
-  zero-width token without making progress — and it did catch exactly that
-  during development.
+  comparison: **10 900 mutants across three seeds, 0 disagreements**, 282
+  rejected identically by both. This is also the cheapest way to catch a scanner
+  that loops forever, the characteristic failure of an external scanner emitting
+  a zero-width token without making progress — and it caught exactly that during
+  development.
 
 Both compare the full mapping — all 18 keys, including the exact list-of-lines
 representation of every description, so whitespace differences show up as
 failures rather than being normalised away.
 
-Four real bugs in this grammar were found by the sweep rather than by the
-curated corpus: headers ending in `foo :`, trailing whitespace after a section
-title, trailing whitespace after a parameter header, and the `strip`-before-split
-ordering of §2.2. Real docstrings are messier than test fixtures.
+Seven real bugs in this grammar were found by the sweep and the fuzzer rather
+than by the curated corpus: headers ending in `foo :`, trailing whitespace after
+a section title, trailing whitespace after a parameter header, the
+`strip`-before-split ordering of §2.2, a trailing *tab* in a header (`strip`
+removes more than spaces), parameter headers longer than the scanner's line
+buffer, and Python's `\w` being Unicode-aware where tree-sitter's is not. Real
+docstrings are messier than test fixtures, and corrupted ones messier still.
+
+### Known limits
+
+- Tree positions refer to the dedented string, not the original (§1).
+- The scanner folds every non-ASCII code point to one placeholder byte, so it
+  cannot tell a Unicode letter from a Unicode symbol. `\w` therefore accepts
+  slightly more than Python's does — only reachable through a non-ASCII Sphinx
+  role name, which does not occur in practice.
+- Lines longer than 4096 code points are not classified as section titles or
+  signatures; they are read as ordinary text. Parameter headers of any length
+  split correctly.
