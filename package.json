@@ -1,0 +1,25 @@
+{
+  "name": "tree-sitter-numpydoc",
+  "version": "0.1.0",
+  "description": "numpydoc docstring grammar for tree-sitter",
+  "license": "MIT",
+  "keywords": [
+    "parser",
+    "lexer",
+    "numpydoc",
+    "docstring"
+  ],
+  "files": [
+    "grammar.js",
+    "tree-sitter.json",
+    "queries/*",
+    "src/**"
+  ],
+  "devDependencies": {
+    "tree-sitter-cli": "^0.26.8"
+  },
+  "scripts": {
+    "generate": "tree-sitter generate",
+    "test": "tree-sitter test"
+  }
+}

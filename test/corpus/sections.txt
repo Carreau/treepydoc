@@ -1,0 +1,579 @@
+================================================================================
+Parameters section
+================================================================================
+
+Summary.
+
+Parameters
+----------
+x : int
+    description
+
+--------------------------------------------------------------------------------
+
+(document
+  (preamble
+    (summary
+      (line)))
+  (parameters_section
+    (section_name)
+    (section_underline)
+    (parameter
+      (entry_header
+        (name)
+        (separator)
+        (type))
+      (description
+        (line)))))
+
+================================================================================
+Other Parameters section
+================================================================================
+
+Summary.
+
+Other Parameters
+----------------
+x : int
+    description
+
+--------------------------------------------------------------------------------
+
+(document
+  (preamble
+    (summary
+      (line)))
+  (parameters_section
+    (section_name)
+    (section_underline)
+    (parameter
+      (entry_header
+        (name)
+        (separator)
+        (type))
+      (description
+        (line)))))
+
+================================================================================
+Attributes section
+================================================================================
+
+Summary.
+
+Attributes
+----------
+x : int
+    description
+
+--------------------------------------------------------------------------------
+
+(document
+  (preamble
+    (summary
+      (line)))
+  (parameters_section
+    (section_name)
+    (section_underline)
+    (parameter
+      (entry_header
+        (name)
+        (separator)
+        (type))
+      (description
+        (line)))))
+
+================================================================================
+Methods section
+================================================================================
+
+Summary.
+
+Methods
+-------
+foo
+    does a thing
+
+--------------------------------------------------------------------------------
+
+(document
+  (preamble
+    (summary
+      (line)))
+  (parameters_section
+    (section_name)
+    (section_underline)
+    (parameter
+      (entry_header
+        (name))
+      (description
+        (line)))))
+
+================================================================================
+Returns section
+================================================================================
+
+Summary.
+
+Returns
+-------
+int
+    the answer
+
+--------------------------------------------------------------------------------
+
+(document
+  (preamble
+    (summary
+      (line)))
+  (typed_section
+    (section_name)
+    (section_underline)
+    (typed_entry
+      (typed_entry_header
+        (type))
+      (description
+        (line)))))
+
+================================================================================
+Yields section
+================================================================================
+
+Summary.
+
+Yields
+------
+int
+    the next value
+
+--------------------------------------------------------------------------------
+
+(document
+  (preamble
+    (summary
+      (line)))
+  (typed_section
+    (section_name)
+    (section_underline)
+    (typed_entry
+      (typed_entry_header
+        (type))
+      (description
+        (line)))))
+
+================================================================================
+Receives section
+================================================================================
+
+Summary.
+
+Receives
+--------
+int
+    the sent value
+
+--------------------------------------------------------------------------------
+
+(document
+  (preamble
+    (summary
+      (line)))
+  (typed_section
+    (section_name)
+    (section_underline)
+    (typed_entry
+      (typed_entry_header
+        (type))
+      (description
+        (line)))))
+
+================================================================================
+Raises section
+================================================================================
+
+Summary.
+
+Raises
+------
+ValueError
+    when things go wrong
+
+--------------------------------------------------------------------------------
+
+(document
+  (preamble
+    (summary
+      (line)))
+  (typed_section
+    (section_name)
+    (section_underline)
+    (typed_entry
+      (typed_entry_header
+        (type))
+      (description
+        (line)))))
+
+================================================================================
+Warns section
+================================================================================
+
+Summary.
+
+Warns
+-----
+RuntimeWarning
+    when things might go wrong
+
+--------------------------------------------------------------------------------
+
+(document
+  (preamble
+    (summary
+      (line)))
+  (typed_section
+    (section_name)
+    (section_underline)
+    (typed_entry
+      (typed_entry_header
+        (type))
+      (description
+        (line)))))
+
+================================================================================
+See Also section
+================================================================================
+
+Summary.
+
+See Also
+--------
+other_func
+
+--------------------------------------------------------------------------------
+
+(document
+  (preamble
+    (summary
+      (line)))
+  (see_also_section
+    (section_name)
+    (section_underline)
+    (see_also_entry
+      (see_also_targets
+        (see_also_target
+          (plain_target
+            (name)))))))
+
+================================================================================
+Notes section
+================================================================================
+
+Summary.
+
+Notes
+-----
+Some notes.
+
+--------------------------------------------------------------------------------
+
+(document
+  (preamble
+    (summary
+      (line)))
+  (generic_section
+    (section_name)
+    (section_underline)
+    (section_body
+      (line))))
+
+================================================================================
+Warnings section
+================================================================================
+
+Summary.
+
+Warnings
+--------
+Some warnings.
+
+--------------------------------------------------------------------------------
+
+(document
+  (preamble
+    (summary
+      (line)))
+  (generic_section
+    (section_name)
+    (section_underline)
+    (section_body
+      (line))))
+
+================================================================================
+References section
+================================================================================
+
+Summary.
+
+References
+----------
+.. [1] Some reference.
+
+--------------------------------------------------------------------------------
+
+(document
+  (preamble
+    (summary
+      (line)))
+  (generic_section
+    (section_name)
+    (section_underline)
+    (section_body
+      (line))))
+
+================================================================================
+Examples section
+================================================================================
+
+Summary.
+
+Examples
+--------
+>>> foo()
+42
+
+--------------------------------------------------------------------------------
+
+(document
+  (preamble
+    (summary
+      (line)))
+  (generic_section
+    (section_name)
+    (section_underline)
+    (section_body
+      (line)
+      (line))))
+
+================================================================================
+Unknown section name falls back to a generic section
+================================================================================
+
+Summary.
+
+Made Up Section
+----------------
+Some body text.
+
+--------------------------------------------------------------------------------
+
+(document
+  (preamble
+    (summary
+      (line)))
+  (generic_section
+    (section_name)
+    (section_underline)
+    (section_body
+      (line))))
+
+================================================================================
+Section underline made of equals signs
+================================================================================
+
+Summary.
+
+Examples
+========
+some text
+
+--------------------------------------------------------------------------------
+
+(document
+  (preamble
+    (summary
+      (line)))
+  (generic_section
+    (section_name)
+    (section_underline)
+    (section_body
+      (line))))
+
+================================================================================
+Underline longer than the title still counts
+================================================================================
+
+Summary.
+
+Notes
+----------
+body
+
+--------------------------------------------------------------------------------
+
+(document
+  (preamble
+    (summary
+      (line)))
+  (generic_section
+    (section_name)
+    (section_underline)
+    (section_body
+      (line))))
+
+================================================================================
+Underline with trailing junk after enough dashes still counts
+================================================================================
+
+Summary.
+
+Notes
+----- extra junk
+body
+
+--------------------------------------------------------------------------------
+
+(document
+  (preamble
+    (summary
+      (line)))
+  (generic_section
+    (section_name)
+    (section_underline)
+    (section_body
+      (line))))
+
+================================================================================
+Underline too short is not a section
+================================================================================
+
+Summary.
+
+Notes
+---
+body
+
+--------------------------------------------------------------------------------
+
+(document
+  (preamble
+    (summary
+      (line))
+    (extended_summary
+      (line)
+      (line)
+      (line))))
+
+================================================================================
+Section header not preceded by a blank line is not a section
+================================================================================
+
+Summary.
+Notes
+-----
+body
+
+--------------------------------------------------------------------------------
+
+(document
+  (preamble
+    (summary
+      (line)
+      (line)
+      (line)
+      (line))))
+
+================================================================================
+Lower-case section title still matches
+================================================================================
+
+Summary.
+
+parameters
+----------
+x : int
+
+--------------------------------------------------------------------------------
+
+(document
+  (preamble
+    (summary
+      (line)))
+  (parameters_section
+    (section_name)
+    (section_underline)
+    (parameter
+      (entry_header
+        (name)
+        (separator)
+        (type)))))
+
+================================================================================
+Upper-case section title still matches
+================================================================================
+
+Summary.
+
+PARAMETERS
+----------
+x : int
+
+--------------------------------------------------------------------------------
+
+(document
+  (preamble
+    (summary
+      (line)))
+  (parameters_section
+    (section_name)
+    (section_underline)
+    (parameter
+      (entry_header
+        (name)
+        (separator)
+        (type)))))
+
+================================================================================
+Lower-case multi-word section title still matches
+================================================================================
+
+Summary.
+
+other parameters
+-----------------
+x : int
+
+--------------------------------------------------------------------------------
+
+(document
+  (preamble
+    (summary
+      (line)))
+  (parameters_section
+    (section_name)
+    (section_underline)
+    (parameter
+      (entry_header
+        (name)
+        (separator)
+        (type)))))
+
+================================================================================
+Trailing whitespace on the title and underline lines
+================================================================================
+
+Summary.
+
+Notes   
+-----   
+body
+
+--------------------------------------------------------------------------------
+
+(document
+  (preamble
+    (summary
+      (line)))
+  (generic_section
+    (section_name)
+    (section_underline)
+    (section_body
+      (line))))

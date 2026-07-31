@@ -1,0 +1,199 @@
+================================================================================
+Plain target
+================================================================================
+
+See Also
+--------
+foo
+
+--------------------------------------------------------------------------------
+
+(document
+  (see_also_section
+    (section_name)
+    (section_underline)
+    (see_also_entry
+      (see_also_targets
+        (see_also_target
+          (plain_target
+            (name)))))))
+
+================================================================================
+Comma-separated list of plain targets
+================================================================================
+
+See Also
+--------
+foo, bar, baz
+
+--------------------------------------------------------------------------------
+
+(document
+  (see_also_section
+    (section_name)
+    (section_underline)
+    (see_also_entry
+      (see_also_targets
+        (see_also_target
+          (plain_target
+            (name)))
+        (see_also_target
+          (plain_target
+            (name)))
+        (see_also_target
+          (plain_target
+            (name)))))))
+
+================================================================================
+Role target
+================================================================================
+
+See Also
+--------
+:meth:`foo`
+
+--------------------------------------------------------------------------------
+
+(document
+  (see_also_section
+    (section_name)
+    (section_underline)
+    (see_also_entry
+      (see_also_targets
+        (see_also_target
+          (role_target
+            (role)
+            (name)))))))
+
+================================================================================
+Role target with a ~pkg.obj name
+================================================================================
+
+See Also
+--------
+:obj:`~pkg.obj`
+
+--------------------------------------------------------------------------------
+
+(document
+  (see_also_section
+    (section_name)
+    (section_underline)
+    (see_also_entry
+      (see_also_targets
+        (see_also_target
+          (role_target
+            (role)
+            (name)))))))
+
+================================================================================
+Trailing comma
+================================================================================
+
+See Also
+--------
+foo,
+
+--------------------------------------------------------------------------------
+
+(document
+  (see_also_section
+    (section_name)
+    (section_underline)
+    (see_also_entry
+      (see_also_targets
+        (see_also_target
+          (plain_target
+            (name)))
+        (trailing_punctuation)))))
+
+================================================================================
+Trailing period
+================================================================================
+
+See Also
+--------
+foo.
+
+--------------------------------------------------------------------------------
+
+(document
+  (see_also_section
+    (section_name)
+    (section_underline)
+    (see_also_entry
+      (see_also_targets
+        (see_also_target
+          (plain_target
+            (name)))))))
+
+================================================================================
+Target with a description
+================================================================================
+
+See Also
+--------
+foo : does something
+
+--------------------------------------------------------------------------------
+
+(document
+  (see_also_section
+    (section_name)
+    (section_underline)
+    (see_also_entry
+      (see_also_targets
+        (see_also_target
+          (plain_target
+            (name))))
+      (see_also_description
+        (text)))))
+
+================================================================================
+Multi-line continuation of a description
+================================================================================
+
+See Also
+--------
+foo : does something
+    more about foo here
+
+--------------------------------------------------------------------------------
+
+(document
+  (see_also_section
+    (section_name)
+    (section_underline)
+    (see_also_entry
+      (see_also_targets
+        (see_also_target
+          (plain_target
+            (name))))
+      (see_also_description
+        (text))
+      (see_also_continuation
+        (text)))))
+
+================================================================================
+Continuation before any item is an orphan continuation
+================================================================================
+
+See Also
+--------
+    orphaned text before any item
+foo
+
+--------------------------------------------------------------------------------
+
+(document
+  (see_also_section
+    (section_name)
+    (section_underline)
+    (orphan_continuation
+      (see_also_continuation
+        (text)))
+    (see_also_entry
+      (see_also_targets
+        (see_also_target
+          (plain_target
+            (name)))))))

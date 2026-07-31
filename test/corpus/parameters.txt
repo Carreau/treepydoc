@@ -1,0 +1,304 @@
+================================================================================
+Parameter with name and type
+================================================================================
+
+Parameters
+----------
+x : int
+    description
+
+--------------------------------------------------------------------------------
+
+(document
+  (parameters_section
+    (section_name)
+    (section_underline)
+    (parameter
+      (entry_header
+        (name)
+        (separator)
+        (type))
+      (description
+        (line)))))
+
+================================================================================
+Parameter with a lone name (no type)
+================================================================================
+
+Parameters
+----------
+x
+    description
+
+--------------------------------------------------------------------------------
+
+(document
+  (parameters_section
+    (section_name)
+    (section_underline)
+    (parameter
+      (entry_header
+        (name))
+      (description
+        (line)))))
+
+================================================================================
+Lone type in a typed section
+================================================================================
+
+Returns
+-------
+int
+    description
+
+--------------------------------------------------------------------------------
+
+(document
+  (typed_section
+    (section_name)
+    (section_underline)
+    (typed_entry
+      (typed_entry_header
+        (type))
+      (description
+        (line)))))
+
+================================================================================
+x : a : b keeps name and type, discards the third field
+================================================================================
+
+Parameters
+----------
+x : a : b
+    description
+
+--------------------------------------------------------------------------------
+
+(document
+  (parameters_section
+    (section_name)
+    (section_underline)
+    (parameter
+      (entry_header
+        (name)
+        (separator)
+        (type)
+        (separator)
+        (discarded))
+      (description
+        (line)))))
+
+================================================================================
+Irregular spacing: two spaces before the colon
+================================================================================
+
+Parameters
+----------
+x  : int
+    d.
+
+--------------------------------------------------------------------------------
+
+(document
+  (parameters_section
+    (section_name)
+    (section_underline)
+    (parameter
+      (entry_header
+        (name)
+        (separator)
+        (type))
+      (description
+        (line)))))
+
+================================================================================
+Irregular spacing: two spaces after the colon
+================================================================================
+
+Parameters
+----------
+x :  int
+    d.
+
+--------------------------------------------------------------------------------
+
+(document
+  (parameters_section
+    (section_name)
+    (section_underline)
+    (parameter
+      (entry_header
+        (name)
+        (separator)
+        (type))
+      (description
+        (line)))))
+
+================================================================================
+Irregular spacing: no space after the colon
+================================================================================
+
+Parameters
+----------
+x :int
+    d.
+
+--------------------------------------------------------------------------------
+
+(document
+  (parameters_section
+    (section_name)
+    (section_underline)
+    (parameter
+      (entry_header
+        (name))
+      (description
+        (line)))))
+
+================================================================================
+Irregular spacing: no space before the colon
+================================================================================
+
+Parameters
+----------
+x: int
+    d.
+
+--------------------------------------------------------------------------------
+
+(document
+  (parameters_section
+    (section_name)
+    (section_underline)
+    (parameter
+      (entry_header
+        (name))
+      (description
+        (line)))))
+
+================================================================================
+Header ending in ' : ' with nothing after it
+================================================================================
+
+Parameters
+----------
+x : 
+    d.
+
+--------------------------------------------------------------------------------
+
+(document
+  (parameters_section
+    (section_name)
+    (section_underline)
+    (parameter
+      (entry_header
+        (name))
+      (description
+        (line)))))
+
+================================================================================
+Header ending in 'foo :'
+================================================================================
+
+Parameters
+----------
+foo :
+    d.
+
+--------------------------------------------------------------------------------
+
+(document
+  (parameters_section
+    (section_name)
+    (section_underline)
+    (parameter
+      (entry_header
+        (name))
+      (description
+        (line)))))
+
+================================================================================
+No description at all
+================================================================================
+
+Parameters
+----------
+x : int
+y : str
+
+--------------------------------------------------------------------------------
+
+(document
+  (parameters_section
+    (section_name)
+    (section_underline)
+    (parameter
+      (entry_header
+        (name)
+        (separator)
+        (type)))
+    (parameter
+      (entry_header
+        (name)
+        (separator)
+        (type)))))
+
+================================================================================
+Blank line inside a description
+================================================================================
+
+Parameters
+----------
+x : int
+    first paragraph.
+
+    second paragraph.
+
+--------------------------------------------------------------------------------
+
+(document
+  (parameters_section
+    (section_name)
+    (section_underline)
+    (parameter
+      (entry_header
+        (name)
+        (separator)
+        (type))
+      (description
+        (line)
+        (line)))))
+
+================================================================================
+Multi-paragraph description
+================================================================================
+
+Parameters
+----------
+x : int
+    first paragraph line one.
+    first paragraph line two.
+
+    second paragraph line one.
+
+    third paragraph line one.
+    third paragraph line two.
+
+--------------------------------------------------------------------------------
+
+(document
+  (parameters_section
+    (section_name)
+    (section_underline)
+    (parameter
+      (entry_header
+        (name)
+        (separator)
+        (type))
+      (description
+        (line)
+        (line)
+        (line)
+        (line)
+        (line)))))

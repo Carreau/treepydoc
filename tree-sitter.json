@@ -1,0 +1,33 @@
+{
+  "grammars": [
+    {
+      "name": "numpydoc",
+      "camelcase": "Numpydoc",
+      "scope": "source.numpydoc",
+      "path": ".",
+      "file-types": [
+        "numpydoc"
+      ],
+      "injection-regex": "^numpydoc$"
+    }
+  ],
+  "metadata": {
+    "version": "0.1.0",
+    "license": "MIT",
+    "description": "numpydoc docstring grammar for tree-sitter",
+    "authors": [
+      {
+        "name": "treepydoc contributors"
+      }
+    ]
+  },
+  "bindings": {
+    "c": true,
+    "go": false,
+    "node": false,
+    "python": true,
+    "rust": false,
+    "swift": false,
+    "zig": false
+  }
+}

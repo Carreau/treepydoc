@@ -1,0 +1,38 @@
+================================================================================
+.. index:: default with a :refguide: field
+================================================================================
+
+Summary.
+
+.. index:: default
+   :refguide: something, other
+
+--------------------------------------------------------------------------------
+
+(document
+  (preamble
+    (summary
+      (line)))
+  (index_section
+    (index_marker)
+    (index_field
+      (index_field_line))))
+
+================================================================================
+.. index :: with a space before the colons is not an index section
+================================================================================
+
+Summary.
+
+.. index :: default
+   :refguide: something
+
+--------------------------------------------------------------------------------
+
+(document
+  (preamble
+    (summary
+      (line))
+    (extended_summary
+      (line)
+      (line))))

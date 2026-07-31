@@ -1,0 +1,681 @@
+[
+  {
+    "type": "_section",
+    "named": true,
+    "subtypes": [
+      {
+        "type": "generic_section",
+        "named": true
+      },
+      {
+        "type": "index_section",
+        "named": true
+      },
+      {
+        "type": "parameters_section",
+        "named": true
+      },
+      {
+        "type": "see_also_section",
+        "named": true
+      },
+      {
+        "type": "typed_section",
+        "named": true
+      }
+    ]
+  },
+  {
+    "type": "description",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": false,
+      "types": [
+        {
+          "type": "line",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "document",
+    "named": true,
+    "root": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": false,
+      "types": [
+        {
+          "type": "_section",
+          "named": true
+        },
+        {
+          "type": "preamble",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "entry_header",
+    "named": true,
+    "fields": {
+      "discarded": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "discarded",
+            "named": true
+          }
+        ]
+      },
+      "name": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "name",
+            "named": true
+          }
+        ]
+      },
+      "type": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "type",
+            "named": true
+          }
+        ]
+      }
+    },
+    "children": {
+      "multiple": true,
+      "required": false,
+      "types": [
+        {
+          "type": "separator",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "extended_summary",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": true,
+      "types": [
+        {
+          "type": "line",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "generic_section",
+    "named": true,
+    "fields": {
+      "name": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "section_name",
+            "named": true
+          }
+        ]
+      },
+      "underline": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "section_underline",
+            "named": true
+          }
+        ]
+      }
+    },
+    "children": {
+      "multiple": false,
+      "required": false,
+      "types": [
+        {
+          "type": "section_body",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "index_field",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": false,
+      "required": true,
+      "types": [
+        {
+          "type": "index_field_line",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "index_section",
+    "named": true,
+    "fields": {
+      "marker": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "index_marker",
+            "named": true
+          }
+        ]
+      }
+    },
+    "children": {
+      "multiple": true,
+      "required": false,
+      "types": [
+        {
+          "type": "index_field",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "orphan_continuation",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": true,
+      "types": [
+        {
+          "type": "see_also_continuation",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "parameter",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": true,
+      "types": [
+        {
+          "type": "description",
+          "named": true
+        },
+        {
+          "type": "entry_header",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "parameters_section",
+    "named": true,
+    "fields": {
+      "name": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "section_name",
+            "named": true
+          }
+        ]
+      },
+      "underline": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "section_underline",
+            "named": true
+          }
+        ]
+      }
+    },
+    "children": {
+      "multiple": true,
+      "required": false,
+      "types": [
+        {
+          "type": "parameter",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "plain_target",
+    "named": true,
+    "fields": {
+      "name": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "name",
+            "named": true
+          }
+        ]
+      }
+    }
+  },
+  {
+    "type": "preamble",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": true,
+      "types": [
+        {
+          "type": "extended_summary",
+          "named": true
+        },
+        {
+          "type": "signature",
+          "named": true
+        },
+        {
+          "type": "summary",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "role_target",
+    "named": true,
+    "fields": {
+      "name": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "name",
+            "named": true
+          }
+        ]
+      },
+      "role": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "role",
+            "named": true
+          }
+        ]
+      }
+    }
+  },
+  {
+    "type": "section_body",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": false,
+      "types": [
+        {
+          "type": "line",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "see_also_continuation",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": false,
+      "required": true,
+      "types": [
+        {
+          "type": "text",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "see_also_description",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": false,
+      "required": false,
+      "types": [
+        {
+          "type": "text",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "see_also_entry",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": true,
+      "types": [
+        {
+          "type": "see_also_continuation",
+          "named": true
+        },
+        {
+          "type": "see_also_description",
+          "named": true
+        },
+        {
+          "type": "see_also_targets",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "see_also_section",
+    "named": true,
+    "fields": {
+      "name": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "section_name",
+            "named": true
+          }
+        ]
+      },
+      "underline": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "section_underline",
+            "named": true
+          }
+        ]
+      }
+    },
+    "children": {
+      "multiple": true,
+      "required": false,
+      "types": [
+        {
+          "type": "orphan_continuation",
+          "named": true
+        },
+        {
+          "type": "see_also_entry",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "see_also_target",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": false,
+      "required": true,
+      "types": [
+        {
+          "type": "plain_target",
+          "named": true
+        },
+        {
+          "type": "role_target",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "see_also_targets",
+    "named": true,
+    "fields": {
+      "trailing": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "trailing_punctuation",
+            "named": true
+          }
+        ]
+      }
+    },
+    "children": {
+      "multiple": true,
+      "required": true,
+      "types": [
+        {
+          "type": "see_also_target",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "separator",
+    "named": true,
+    "fields": {}
+  },
+  {
+    "type": "signature",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": true,
+      "types": [
+        {
+          "type": "line",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "summary",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": true,
+      "types": [
+        {
+          "type": "line",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "typed_entry",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": true,
+      "types": [
+        {
+          "type": "description",
+          "named": true
+        },
+        {
+          "type": "typed_entry_header",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "typed_entry_header",
+    "named": true,
+    "fields": {
+      "discarded": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "discarded",
+            "named": true
+          }
+        ]
+      },
+      "name": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "name",
+            "named": true
+          }
+        ]
+      },
+      "type": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "type",
+            "named": true
+          }
+        ]
+      }
+    },
+    "children": {
+      "multiple": true,
+      "required": false,
+      "types": [
+        {
+          "type": "separator",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "typed_section",
+    "named": true,
+    "fields": {
+      "name": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "section_name",
+            "named": true
+          }
+        ]
+      },
+      "underline": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "section_underline",
+            "named": true
+          }
+        ]
+      }
+    },
+    "children": {
+      "multiple": true,
+      "required": false,
+      "types": [
+        {
+          "type": "typed_entry",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": " : ",
+    "named": false
+  },
+  {
+    "type": ":",
+    "named": false
+  },
+  {
+    "type": "`",
+    "named": false
+  },
+  {
+    "type": "discarded",
+    "named": true
+  },
+  {
+    "type": "index_field_line",
+    "named": true
+  },
+  {
+    "type": "index_marker",
+    "named": true
+  },
+  {
+    "type": "line",
+    "named": true
+  },
+  {
+    "type": "name",
+    "named": true
+  },
+  {
+    "type": "role",
+    "named": true
+  },
+  {
+    "type": "section_name",
+    "named": true
+  },
+  {
+    "type": "section_underline",
+    "named": true
+  },
+  {
+    "type": "text",
+    "named": true
+  },
+  {
+    "type": "trailing_punctuation",
+    "named": true
+  },
+  {
+    "type": "type",
+    "named": true
+  }
+]
