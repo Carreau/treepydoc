@@ -7,6 +7,8 @@ Current state: parse-identical to numpydoc at commit `4e7c5ad` across 82
 curated cases, 9904 real docstrings and ~10 900 fuzzed ones; render-identical
 through `str()`, through `SphinxDocString`, and through a full Sphinx build of
 numpydoc's own `tinybuild` project (6/6 generated pages byte-identical).
+numpydoc's own test suite runs on it with the same 113 passing and the same 44
+failing, test-for-test.
 
 ---
 
@@ -27,6 +29,13 @@ branch:
 | --- | --- | --- |
 | curated corpus | 82 / 82 | 78 / 82 |
 | numpy + scipy + pandas | 9904 / 9904 | 9888 / 9904 |
+| numpydoc's own suite | identical | 3 newly failing |
+
+The three are `test_parameter_header_with_multiple_colons`,
+`test_parameter_header_whitespace_is_stripped` and
+`test_short_underline_warning` — that is, exactly the tests written to pin the
+new behaviour. Nothing else moves. numpydoc's suite has effectively become the
+specification for what a `compat` switch has to cover.
 
 Every one of those 4 + 16 differences is treepydoc faithfully reproducing a bug
 that upstream has now fixed — two headers containing ` : ` and two with stray

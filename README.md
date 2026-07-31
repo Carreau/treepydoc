@@ -34,6 +34,7 @@ asserted:
 | every public docstring in numpy, scipy and pandas | **9904 / 9904 identical** |
 | 10 900 mutation-fuzzed docstrings, 3 seeds | **0 disagreements**, no hangs |
 | a full Sphinx build of numpydoc's `tinybuild` | **6 / 6 pages byte-identical** |
+| **numpydoc's own test suite, run on this parser** | **identical: same 113 pass, same 44 fail** |
 
 Both suites compare the complete mapping, all 18 keys, down to the exact
 list-of-lines representation of every description.
@@ -43,6 +44,7 @@ list-of-lines representation of every description.
 python3 tools/sweep.py               # numpy + scipy + pandas
 python3 tools/fuzz.py                # corrupt real docstrings, compare again
 python3 tools/sphinx_compare.py      # build tinybuild both ways, diff the HTML
+python3 tools/run_numpydoc_suite.py  # numpydoc's own tests, both parsers
 ```
 
 Point `NUMPYDOC_PATH` at a **pinned** numpydoc checkout. treepydoc is
@@ -54,6 +56,30 @@ Equivalence includes the bugs. `numpydoc` truncates
 `x : dict of {str : int}` to a type of `dict of {str`, and so does this. See
 [DESIGN.md](DESIGN.md) for the full list of reproduced warts and why each one is
 worth questioning.
+
+### numpydoc's own test suite
+
+The strongest available check, because that suite was written to pin numpydoc's
+behaviour down rather than to be easy to pass — it asserts on parse results,
+rendered reStructuredText, warning text, exception messages and Sphinx output.
+`tools/numpydoc_swap.py` rebinds the names in `numpydoc.docscrape` and runs it:
+
+```
+  numpydoc  : 44 failed, 113 passed, 2 xfailed
+  treepydoc : 44 failed, 113 passed, 2 xfailed
+
+Identical: the same 44 tests fail and the same tests pass, either way.
+```
+
+The 44 are pre-existing on that checkout — an old test file against a modern
+Python, and a newer Sphinx than the pinned one. The failing sets match
+test-for-test, so the bar is "same tests, same outcome", not "everything green".
+
+That the swap is a single rebinding is not an accident of packaging: every
+consumer, including `docscrape_sphinx` and `validate`, reaches the parser
+through the `numpydoc.docscrape` module namespace. `docscrape_sphinx` runs
+`class SphinxDocString(NumpyDocString)` at import time, so its rendering layer
+rebases automatically.
 
 ## Using it with Sphinx
 
@@ -102,6 +128,8 @@ tools/conformance.py    differential test against numpydoc
 tools/sweep.py          differential test over installed packages
 tools/fuzz.py           mutation fuzzer, same comparison on corrupted input
 tools/sphinx_compare.py end-to-end Sphinx build diff
+tools/numpydoc_swap.py  pytest plugin that swaps the parser in
+tools/run_numpydoc_suite.py  runs numpydoc's tests both ways and diffs
 treepydoc/sphinx.py     the Sphinx extension
 ```
 

@@ -357,6 +357,36 @@ removes more than spaces), parameter headers longer than the scanner's line
 buffer, and Python's `\w` being Unicode-aware where tree-sitter's is not. Real
 docstrings are messier than test fixtures, and corrupted ones messier still.
 
+### numpydoc's own test suite
+
+`tools/numpydoc_swap.py` rebinds the parser names in `numpydoc.docscrape` and
+runs numpydoc's suite on treepydoc. The same 113 tests pass and the same 44 fail
+— test-for-test, not just by count — where the 44 are pre-existing failures of
+that checkout under a modern Python and a newer Sphinx.
+
+Getting there needed one addition that is worth calling out, because it says
+something about what "drop-in" costs. `numpydoc.validate.Validator.section_titles`
+does this:
+
+```python
+self.doc._doc.reset()
+while not self.doc._doc.eof():
+    content = self.doc._read_to_next_section()
+```
+
+It drives the reference parser's private line `Reader` directly. No amount of
+matching the public mapping helps; a consumer reaching into `_doc` needs `_doc`
+to exist. So `treepydoc` ships `_Reader` and `_read_to_next_section` as an
+explicitly labelled compatibility shim that takes no part in the parse. Without
+it, 24 of `test_validate`'s tests and 2 of `test_main`'s fail — which is the
+whole of `numpydoc lint`.
+
+It is also a good advertisement for the tree. `section_titles` wants the list of
+section titles as written; treepydoc has a `section_name` node for each one,
+with a byte range. Reimplementing that method against the tree would be three
+lines and would report positions. The shim exists to keep today's callers
+working, not because the line reader is the right way to answer the question.
+
 ### Known limits
 
 - Tree positions refer to the dedented string, not the original (§1).
