@@ -84,7 +84,10 @@ def _sphinx_doc_string_init(self, docstring, config=None):
     self.load_config(config)
 
 
-SphinxDocString.__init__ = _sphinx_doc_string_init
+# Assigned rather than defined in the class body because the class is built by
+# copying numpydoc's rendering methods in, and its `__init__` is the one thing
+# that must not come along -- it calls numpydoc's parser by name.
+SphinxDocString.__init__ = _sphinx_doc_string_init  # type: ignore[method-assign]
 
 
 def _str_see_also(self, func_role):
@@ -102,7 +105,7 @@ def _str_see_also(self, func_role):
     return out
 
 
-SphinxDocString._str_see_also = _str_see_also
+SphinxDocString._str_see_also = _str_see_also  # type: ignore[method-assign]
 
 
 class SphinxFunctionDoc(SphinxDocString, FunctionDoc):

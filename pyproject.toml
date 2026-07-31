@@ -23,13 +23,14 @@ dependencies = ["tree_sitter>=0.23"]
 
 [project.optional-dependencies]
 # The differential suites need something to compare against.
-test = ["pytest"]
+test = ["pytest", "tree-sitter-python"]
 sphinx = ["sphinx", "jinja2"]
 
 # Dev tooling, pinned so a new linter release cannot turn CI red on an
 # unchanged tree. Installed with `pip install --group lint`.
 [dependency-groups]
 lint = [
+  "mypy==1.19.1",
   "ruff==0.16.1",
   "codespell==2.4.3",
   "zizmor==1.28.0",
@@ -38,6 +39,28 @@ lint = [
 
 [project.urls]
 Homepage = "https://github.com/carreau/treepydoc"
+
+[tool.mypy]
+python_version = "3.9"
+files = ["treepydoc", "tools", "tests"]
+warn_unused_configs = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+no_implicit_optional = true
+strict_equality = true
+
+# Neither numpydoc nor Sphinx's internals ship type information, and jinja2's
+# are partial. treepydoc is checked; what it talks to is not.
+[[tool.mypy.overrides]]
+module = ["numpydoc.*", "sphinx.*", "jinja2.*", "corpus", "conformance", "sweep"]
+ignore_missing_imports = true
+
+# `python_version = "3.9"` is about *our* code. pytest ships type information
+# written in newer syntax, so analysing its internals under 3.9 rules fails on
+# pytest rather than on anything here.
+[[tool.mypy.overrides]]
+module = ["pytest", "_pytest.*"]
+follow_imports = "skip"
 
 [tool.scikit-build]
 minimum-version = "build-system.requires"

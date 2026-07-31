@@ -115,6 +115,18 @@ The plain object API matches too, for callers that use it directly:
 - **Incremental reparsing**, and **injection** of `tree-sitter-rst` into the
   prose sections so `Notes` and `Examples` highlight as real reStructuredText.
 
+## Editor support
+
+[`editors/README.md`](editors/README.md) has a complete Neovim setup: build the
+parser, install the queries, and an injection that hands Python docstrings to
+this grammar. `python3 tools/highlight_demo.py --color` runs the same pipeline
+outside an editor so you can see what it highlights.
+
+Read the indentation limitation in that document before wiring it up: numpydoc
+anchors parameter entries at column 0 *after dedenting*, and an editor hands
+over the docstring still indented, so today only the first parameter of each
+section highlights. The fix and its measured cost are written up there.
+
 ## Layout
 
 ```
@@ -133,6 +145,8 @@ tools/sphinx_compare.py end-to-end Sphinx build diff
 tools/numpydoc_swap.py  pytest plugin that swaps the parser in
 tools/run_numpydoc_suite.py  runs numpydoc's tests both ways and diffs
 tools/smoke_test.py     post-install check, imports nothing from the tree
+tools/highlight_demo.py runs the editor pipeline outside an editor
+editors/                Neovim queries and setup
 CMakeLists.txt          builds the extension; no setup.py
 .github/workflows/      CI: grammar, build, conformance, differential, lint, package
 treepydoc/sphinx.py     the Sphinx extension
@@ -166,6 +180,7 @@ unchanged tree:
 | Tool | What it covers |
 | --- | --- |
 | `ruff` | Python |
+| `mypy` | Python types |
 | `codespell` | prose in every file |
 | `shellcheck` | `run_conformance.sh` |
 | `clang-format` | `src/scanner.c` (Google style; `src/parser.c` is generated and exempt) |

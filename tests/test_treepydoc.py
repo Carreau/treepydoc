@@ -672,3 +672,53 @@ def test_sphinx_setup_uses_numpydocs_extension_point():
     assert "autodoc-process-docstring" in app.connected
     # numpydoc's module global is what mangle_docstrings actually calls.
     assert numpydoc_ext.get_doc_object is treepydoc_sphinx.get_doc_object
+
+
+# ------------------------------------------------------------ editor queries
+
+
+EDITOR_QUERIES = Path(__file__).resolve().parent.parent / "editors" / "nvim" / "queries"
+
+
+@pytest.mark.parametrize("name", ["highlights.scm", "injections.scm"])
+def test_numpydoc_queries_compile(name):
+    """A broken query silently stops highlighting, so compile them in CI."""
+    source = (EDITOR_QUERIES / "numpydoc" / name).read_text()
+    tree_sitter.Query(treepydoc.language(), source)
+
+
+def test_python_injection_finds_docstrings():
+    """The injection must capture docstrings, and only docstrings."""
+    tree_sitter_python = pytest.importorskip("tree_sitter_python")
+
+    language = tree_sitter.Language(tree_sitter_python.language())
+    query = tree_sitter.Query(
+        language, (EDITOR_QUERIES / "python" / "injections.scm").read_text()
+    )
+    source = (
+        b'"""Module doc."""\n'
+        b'x = "not a docstring"\n'
+        b"class C:\n"
+        b'    """Class doc."""\n'
+        b"    def m(self):\n"
+        b'        """Method doc."""\n'
+        b'        y = "also not a docstring"\n'
+    )
+    tree = tree_sitter.Parser(language).parse(source)
+    captured = tree_sitter.QueryCursor(query).captures(tree.root_node)
+    texts = sorted(n.text.decode() for n in captured["injection.content"])
+    assert texts == ["Class doc.", "Method doc.", "Module doc."]
+
+
+def test_highlights_capture_section_headings():
+    """The captures the editor doc promises must actually fire."""
+    query = tree_sitter.Query(
+        treepydoc.language(),
+        (EDITOR_QUERIES / "numpydoc" / "highlights.scm").read_text(),
+    )
+    tree = treepydoc.parse(REPRESENTATIVE_DOC)
+    captured = tree_sitter.QueryCursor(query).captures(tree.root_node)
+
+    headings = {n.text.decode() for n in captured.get("markup.heading", [])}
+    assert {"Parameters", "Returns", "See Also", "Notes"} <= headings
+    assert {n.text.decode() for n in captured.get("variable.parameter", [])} >= {"mean"}

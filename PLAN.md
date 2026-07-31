@@ -81,13 +81,23 @@ This also unblocks a `numpydoc.validate` replacement (§3).
 
 ## 2. Editor integration
 
-The grammar exists; nothing consumes it yet.
+Done: `editors/` has the Neovim queries, the Python injection, and a setup
+guide; `tools/highlight_demo.py` runs the whole pipeline outside an editor and
+CI runs it.
 
-- **Injection from the Python side.** A `tree-sitter-python` injection that
-  hands docstring string literals to this grammar is what makes it useful in an
-  editor at all. That needs §1, because the injected region is indented.
-- **Ship the queries.** `queries/highlights.scm` and `injections.scm` are
-  written but not packaged for nvim-treesitter or Helix.
+Left, and this is the blocker that makes the rest of it half-work:
+
+- **The indentation anchor.** An editor hands over the docstring as it appears
+  in the file. numpydoc anchors entries at column 0 *after* dedenting, so today
+  only the first parameter of each section highlights. Anchoring instead at the
+  indent of the section's first body line has been prototyped and measured: it
+  fixes highlighting completely, and costs 2 of 82 corpus cases and 1 of ~9905
+  real docstrings — every one of them a docstring that was never dedented, where
+  numpydoc collapses several parameters into one. It diverges from numpydoc only
+  where numpydoc is wrong, which is exactly why it belongs behind the `compat=`
+  switch in §0 rather than being flipped on quietly.
+- **Package the queries** for nvim-treesitter and Helix rather than asking
+  people to copy files.
 - **A diagnostics pass.** `queries/diagnostics.scm` already captures the
   `discarded` node and `ERROR`s. Two more are worth adding once §0 lands: the
   too-short underline, and a section title that is one edit away from a known

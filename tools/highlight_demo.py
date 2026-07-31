@@ -1,0 +1,179 @@
+"""Run the editor pipeline outside an editor, and show what it highlights.
+
+This does exactly what nvim does with the queries in `editors/nvim`:
+
+1. parse a Python file with tree-sitter-python,
+2. run `queries/python/injections.scm` to find the docstring regions,
+3. parse each region with the numpydoc grammar,
+4. run `queries/numpydoc/highlights.scm` over it,
+
+and then prints the docstring with each captured span labelled. It is both the
+demo and the test that the queries actually compile and capture what they claim.
+
+Usage:
+    python3 tools/highlight_demo.py [file.py] [--color] [--tree]
+"""
+
+from __future__ import annotations
+
+import argparse
+import sys
+from pathlib import Path
+
+import tree_sitter
+import treepydoc
+
+REPO = Path(__file__).resolve().parent.parent
+QUERY_DIR = REPO / "editors" / "nvim" / "queries"
+
+SAMPLE = '''\
+def multivariate_normal(mean, cov, shape=None):
+    """Draw samples from a multivariate normal distribution.
+
+    The multivariate normal is a generalisation of the one-dimensional
+    normal distribution to higher dimensions.
+
+    Parameters
+    ----------
+    mean : (N,) ndarray
+        Mean of the N-dimensional distribution.
+    cov : (N, N) ndarray
+        Covariance matrix of the distribution.
+    shape : tuple of ints
+        Shape of the output.
+
+    Returns
+    -------
+    out : ndarray
+        The drawn samples.
+
+    See Also
+    --------
+    normal : The one-dimensional case.
+    :func:`numpy.random.standard_normal`
+
+    Notes
+    -----
+    Instead of specifying the full covariance matrix, popular approximations
+    include diagonal and low-rank forms.
+    """
+'''
+
+# Rough ANSI mapping, only so the demo is legible in a terminal. A real editor
+# resolves these capture names against its colour scheme.
+COLORS = {
+    "markup.heading": "1;36",
+    "punctuation.special": "36",
+    "variable.parameter": "1;33",
+    "type": "32",
+    "punctuation.delimiter": "90",
+    "property": "35",
+    "function": "1;34",
+    "error": "1;31",
+    "string.special": "35",
+    "comment": "90",
+    "markup.italic": "3",
+}
+
+
+def python_language() -> tree_sitter.Language:
+    try:
+        import tree_sitter_python
+    except ImportError:  # pragma: no cover - depends on the environment
+        raise SystemExit(
+            "tree_sitter_python is needed for the demo: pip install tree-sitter-python"
+        ) from None
+    return tree_sitter.Language(tree_sitter_python.language())
+
+
+def docstring_regions(source: bytes):
+    """The regions nvim's injection query would hand to the numpydoc parser."""
+    language = python_language()
+    query = tree_sitter.Query(
+        language, (QUERY_DIR / "python" / "injections.scm").read_text()
+    )
+    tree = tree_sitter.Parser(language).parse(source)
+    captures = tree_sitter.QueryCursor(query).captures(tree.root_node)
+    nodes = captures.get("injection.content", [])
+    return sorted(nodes, key=lambda n: n.start_byte)
+
+
+def highlight(region: bytes):
+    """Return (start, end, capture) spans for one docstring region."""
+    query = tree_sitter.Query(
+        treepydoc.language(), (QUERY_DIR / "numpydoc" / "highlights.scm").read_text()
+    )
+    tree = tree_sitter.Parser(treepydoc.language()).parse(region)
+    captures = tree_sitter.QueryCursor(query).captures(tree.root_node)
+
+    spans = []
+    for name, nodes in captures.items():
+        for node in nodes:
+            spans.append((node.start_byte, node.end_byte, name))
+    # Innermost capture wins, the way an editor resolves overlaps.
+    spans.sort(key=lambda s: (s[0], -(s[1] - s[0])))
+    return tree, spans
+
+
+def render(region: bytes, spans, color: bool) -> str:
+    """Paint the region, letting later (narrower) spans win on overlap."""
+    labels: list[str | None] = [None] * len(region)
+    for start, end, name in spans:
+        for i in range(start, min(end, len(region))):
+            labels[i] = name
+
+    out = []
+    current = None
+    for i, byte in enumerate(region):
+        if labels[i] != current:
+            if color and current is not None:
+                out.append("\033[0m")
+            current = labels[i]
+            if color and current is not None:
+                out.append(f"\033[{COLORS.get(current, '0')}m")
+        out.append(chr(byte))
+    if color and current is not None:
+        out.append("\033[0m")
+    return "".join(out)
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("file", nargs="?", help="a .py file; omit for the built-in sample")
+    ap.add_argument("--color", action="store_true", help="ANSI colours")
+    ap.add_argument("--tree", action="store_true", help="also dump the numpydoc tree")
+    args = ap.parse_args()
+
+    source = Path(args.file).read_bytes() if args.file else SAMPLE.encode()
+
+    regions = docstring_regions(source)
+    if not regions:
+        print("no docstrings found")
+        return 1
+
+    print(f"{len(regions)} docstring region(s) injected\n")
+    problems = 0
+    for node in regions:
+        region = node.text
+        tree, spans = highlight(region)
+
+        line = node.start_point[0] + 1
+        print(f"{'=' * 70}\nline {line}, {len(spans)} captures")
+        if tree.root_node.has_error:
+            problems += 1
+            print("  NOTE: the region did not parse cleanly")
+        print("=" * 70)
+        print(render(region, spans, args.color))
+
+        counts: dict[str, int] = {}
+        for _, _, name in spans:
+            counts[name] = counts.get(name, 0) + 1
+        print("\ncaptures: " + ", ".join(f"{k}={v}" for k, v in sorted(counts.items())))
+        if args.tree:
+            print("\n" + str(tree.root_node))
+
+    return 1 if problems else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
