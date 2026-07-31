@@ -55,8 +55,9 @@ module.exports = grammar({
     // `header.strip().split(' : ')` decomposition, only ever requested once a
     // guard has committed the parser to a parameter entry.
     $._entry_first,
+    $._entry_separator,
     $._entry_second,
-    $._entry_discarded,
+    $._dangling_separator,
 
     $._error_sentinel,
   ],
@@ -214,28 +215,32 @@ module.exports = grammar({
     entry_header: $ => seq(
       field('name', alias($._entry_first, $.name)),
       optional($._entry_tail),
+      optional(alias($._dangling_separator, $.dangling_separator)),
     ),
 
-    typed_entry_header: $ => choice(
-      seq(field('name', alias($._entry_first, $.name)), $._entry_tail),
-      field('type', alias($._entry_first, $.type)),
+    typed_entry_header: $ => seq(
+      choice(
+        seq(field('name', alias($._entry_first, $.name)), $._entry_tail),
+        field('type', alias($._entry_first, $.type)),
+      ),
+      optional(alias($._dangling_separator, $.dangling_separator)),
     ),
 
-    // `x : int : leftover` keeps `x` and `int` and throws `leftover` away,
-    // because numpydoc does `header.split(' : ')[:2]`. The grammar keeps the
-    // discarded text as a node so tooling can point at it.
-    // The type is optional because `split` can produce an empty field:
-    // `a :  : b` splits to `['a', '', 'b']`, so the type really is `''`.
+    // `header.removesuffix(" :")`. A header with no separator that still ends
+    // in ` :` looks like it meant to declare a type and did not; numpydoc drops
+    // the colon silently, and the node is kept so tooling can point at it.
+    //
+    // Separator and dangling colon overlap -- ` : ` versus ` :` -- and the
+    // lexer would always prefer the longer one, which is wrong for a header
+    // like `... : ` whose trailing space is outside the stripped text. The
+    // scanner knows where the header ends, so it decides.
+
+    // `header.split(' : ', maxsplit=1)`: only the first separator splits, so
+    // the type is everything after it, up to the end of the stripped header.
     _entry_tail: $ => seq(
       alias($._entry_separator, $.separator),
-      optional(field('type', alias($._entry_second, $.type))),
-      optional(seq(
-        alias($._entry_separator, $.separator),
-        field('discarded', alias($._entry_discarded, $.discarded)),
-      )),
+      field('type', alias($._entry_second, $.type)),
     ),
-
-    _entry_separator: _$ => token(' : '),
 
     description: $ => repeat1(choice($._description_line, $._blank_line)),
 
@@ -283,7 +288,7 @@ module.exports = grammar({
     // tree-sitter's `\w` is ASCII, so the class is spelled out.
     role_target: $ => seq(
       ':',
-      field('role', alias(/[\p{L}\p{N}_]+/, $.role)),
+      field('role', alias(/(?:py:)?[\p{L}\p{N}_]+/, $.role)),
       ':',
       '`',
       field('name', alias(/(?:~[\p{L}\p{N}_]+\.)?[a-zA-Z0-9_.-]+/, $.name)),

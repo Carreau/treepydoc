@@ -8,7 +8,7 @@ version = "0.1.0"
 description = "A tree-sitter grammar and parser for numpydoc docstrings"
 readme = "README.md"
 license = { file = "LICENSE" }
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 keywords = ["tree-sitter", "numpydoc", "docstring", "parser", "sphinx"]
 classifiers = [
   "Development Status :: 3 - Alpha",
@@ -23,8 +23,10 @@ dependencies = ["tree_sitter>=0.23"]
 
 [project.optional-dependencies]
 # The differential suites need something to compare against.
-test = ["pytest", "tree-sitter-python"]
+test = ["pytest", "tree-sitter-python", "numpydoc>=1.10"]
 sphinx = ["sphinx", "jinja2"]
+# The parser targets this numpydoc; see PLAN.md section 0.
+numpydoc = ["numpydoc>=1.10"]
 
 # Dev tooling, pinned so a new linter release cannot turn CI red on an
 # unchanged tree. Installed with `pip install --group lint`.
@@ -41,7 +43,7 @@ lint = [
 Homepage = "https://github.com/carreau/treepydoc"
 
 [tool.mypy]
-python_version = "3.9"
+python_version = "3.10"
 files = ["treepydoc", "tools", "tests"]
 warn_unused_configs = true
 warn_redundant_casts = true
@@ -55,9 +57,8 @@ strict_equality = true
 module = ["numpydoc.*", "sphinx.*", "jinja2.*", "corpus", "conformance", "sweep"]
 ignore_missing_imports = true
 
-# `python_version = "3.9"` is about *our* code. pytest ships type information
-# written in newer syntax, so analysing its internals under 3.9 rules fails on
-# pytest rather than on anything here.
+# pytest ships type information that mypy would otherwise analyse in full;
+# skipping it keeps the report about this project.
 [[tool.mypy.overrides]]
 module = ["pytest", "_pytest.*"]
 follow_imports = "skip"
@@ -65,7 +66,7 @@ follow_imports = "skip"
 [tool.scikit-build]
 minimum-version = "build-system.requires"
 build-dir = "build/{wheel_tag}"
-wheel.py-api = "cp39"
+wheel.py-api = "cp310"
 wheel.packages = ["treepydoc", "bindings/python/tree_sitter_numpydoc"]
 sdist.include = ["src/**", "grammar.js", "tree-sitter.json", "queries/*.scm"]
 

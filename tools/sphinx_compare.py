@@ -53,9 +53,13 @@ def prepare(source: Path, dest: Path, extension: str) -> Path:
     conf = dest / "conf.py"
     text = conf.read_text()
     if extension != "numpydoc":
-        text = text.replace("    'numpydoc',", f"    '{extension}',")
-        if extension not in text:
-            raise SystemExit("could not swap the extension in conf.py")
+        # Quote style has changed between numpydoc releases, so match either.
+        for quoted in ('"numpydoc"', "'numpydoc'"):
+            if quoted in text:
+                text = text.replace(quoted, f'"{extension}"', 1)
+                break
+        else:
+            raise SystemExit("could not find numpydoc in the tinybuild conf.py")
     conf.write_text(text + HERMETIC)
     return dest
 

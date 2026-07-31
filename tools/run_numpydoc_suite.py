@@ -13,9 +13,10 @@ against a modern Python, a newer Sphinx than the pinned one -- so the bar is not
 "everything passes", it is "the same tests pass and the same tests fail".
 
 Usage:
-    NUMPYDOC_PATH=/path/to/numpydoc python3 tools/run_numpydoc_suite.py
+    python3 tools/run_numpydoc_suite.py
 
-Pin NUMPYDOC_PATH to the commit treepydoc targets; see PLAN.md section 0.
+Runs against whichever numpydoc is installed; treepydoc targets >= 1.10. Point
+NUMPYDOC_PATH at a checkout to use that instead.
 """
 
 from __future__ import annotations
@@ -68,12 +69,21 @@ def run(numpydoc: Path, swap: bool) -> tuple[str, set[str]]:
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--numpydoc", default=os.environ.get("NUMPYDOC_PATH"))
+    ap.add_argument(
+        "--numpydoc",
+        default=os.environ.get("NUMPYDOC_PATH"),
+        help="a numpydoc checkout; defaults to the installed package",
+    )
     args = ap.parse_args()
 
-    if not args.numpydoc:
-        raise SystemExit("set NUMPYDOC_PATH (or pass --numpydoc)")
-    numpydoc = Path(args.numpydoc).resolve()
+    if args.numpydoc:
+        numpydoc = Path(args.numpydoc).resolve()
+    else:
+        # numpydoc ships its test suite inside the package, so an installed
+        # copy is enough: pytest runs from the directory that contains it.
+        import numpydoc as installed
+
+        numpydoc = Path(installed.__file__).resolve().parent.parent
     if not (numpydoc / "numpydoc" / "tests").is_dir():
         raise SystemExit(f"no numpydoc test suite under {numpydoc}")
 

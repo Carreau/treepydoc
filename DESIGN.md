@@ -1,10 +1,11 @@
 # Design notes
 
 This grammar is deliberately bug-compatible with
-`numpydoc.docscrape.NumpyDocString`. The point of the exercise was a parser that
-produces *the same answers* as the reference implementation, so that it can be
-swapped in without changing any downstream output — while also producing a
-syntax tree, which the reference implementation does not.
+`numpydoc.docscrape.NumpyDocString`, **as of numpydoc 1.10**. The point of the
+exercise was a parser that produces *the same answers* as the reference
+implementation, so that it can be swapped in without changing any downstream
+output — while also producing a syntax tree, which the reference implementation
+does not.
 
 Two documents in one, then: how the grammar reproduces numpydoc, and where
 numpydoc's behaviour is worth a second look.
@@ -91,19 +92,20 @@ Everything in this section is faithfully reproduced. It is listed because
 faithfully reproducing it was, in several cases, the hardest part of the job,
 and because a future version of numpydoc might reasonably change it.
 
-### 2.1 `textwrap.dedent` is the wrong dedent for docstrings
+### 2.1 `textwrap.dedent` is still the wrong dedent, but it mostly stops mattering
 
 ```python
-docstring = textwrap.dedent(docstring).split('\n')
+docstring = textwrap.dedent(docstring).split("\n")
 ```
 
 A Python docstring's first line is flush against the opening quotes and the rest
-is indented to the body. `textwrap.dedent` computes the common margin across
-*all* non-blank lines, so that first line forces the margin to `''` and nothing
-is dedented at all. Section headers still match, because `_is_at_section`
-compares stripped lines — but `read_to_next_unindented_line` looks for a line at
-column 0 and never finds one, so a parameter description runs on until the next
-section:
+is indented to the body, so `textwrap.dedent`'s common margin comes out as `''`
+and nothing is dedented. `inspect.cleandoc` is the right primitive and 1.10
+still does not use it.
+
+What saves it is that `_parse_param_list` and `_parse_see_also` now open with
+`content = dedent_lines(content)`, dedenting each *section body* separately. So
+the top-level dedent failing no longer costs you parameters:
 
 ```python
 NumpyDocString("""Summary.
@@ -114,62 +116,48 @@ NumpyDocString("""Summary.
         First.
     y : str
         Second.
-    """)['Parameters']
+    """)["Parameters"]
 ```
 
 ```
-[Parameter(name='x', type='int', desc=['    First.', 'y : str', '    Second.'])]
+[Parameter(name='x', type='int', desc=['First.']),
+ Parameter(name='y', type='str', desc=['Second.'])]
 ```
 
-One parameter instead of two, with the second one's header sitting inside the
-first one's description as prose. Passing the same string through
-`inspect.cleandoc` first gives the two parameters you would expect.
+Two parameters, correctly. On 0.9 this returned one, with `y : str` sitting
+inside `x`'s description as prose.
 
-In practice this is masked because the real entry points go through
-`inspect.getdoc` / `pydoc.getdoc`, which implement `inspect.cleandoc` semantics —
-first line handled separately, then the common margin of the remainder. But
-`NumpyDocString` is public and is called directly by plenty of code, and when it
-is, this is a silent, hard-to-diagnose corruption.
+This is the single most consequential change for treepydoc, because it is what
+makes editor integration work: an editor hands over a docstring still indented
+to its function body, and section-relative dedenting is exactly what that needs.
+The scanner reproduces it by working out, at each section header, the margin
+`dedent_lines` would strip from that section's body, and anchoring entries there
+instead of at column 0. See `editors/README.md`.
 
-`inspect.cleandoc` is the correct primitive here. Changing it would be a
-behaviour change for direct callers, but every one of those callers is currently
-getting a wrong answer for the indented case.
+The remaining sharp edge is that the margin is the minimum indent over the
+body's non-blank lines, so it has to be computed by looking at the whole body —
+the first line's indent is not good enough. A See Also body that opens with a
+continuation is deeper than the items that follow it, and taking the first line
+would misread every one of them.
 
-### 2.2 `split(' : ')[:2]` silently discards data
+### 2.2 `split(' : ')` used to truncate; 1.10 fixed it
 
 ```python
-if ' : ' in header:
-    arg_name, arg_type = header.split(' : ')[:2]
+arg_name, arg_type = header.split(" : ", maxsplit=1)   # 1.10
+arg_name, arg_type = header.split(' : ')[:2]           # 0.9
 ```
 
-`split` is unbounded and `[:2]` throws away everything past the second
-separator, with no warning:
+The old form split on *every* occurrence and kept two, so
+`d : dict of {str : int}` documented `d` with the type `dict of {str`. 1.10
+splits once and keeps the remainder, which is almost certainly what was always
+meant. Nothing is discarded any more, and the `discarded` node this grammar used
+to expose is gone with it.
 
-| header | name | type | lost |
-| --- | --- | --- | --- |
-| `x : int` | `x` | `int` | — |
-| `x : dict : optional` | `x` | `dict` | `optional` |
-| `d : dict of {str : int}` | `d` | `dict of {str` | `int}` |
-
-The third row is the one that bites: a perfectly ordinary type annotation
-containing a spaced colon gets truncated, and the parameter is documented with a
-garbage type. `split(' : ', maxsplit=1)` is almost certainly what was meant, and
-upstream numpydoc has since changed it.
-
-Because this grammar has to reproduce the truncation, it exposes the casualty as
-a node rather than dropping it on the floor:
-
-```
-(entry_header
-  name: (name)          ; x
-  (separator)
-  type: (type)          ; dict
-  discarded: (discarded)) ; optional   <- numpydoc never sees this
-```
-
-`queries/diagnostics.scm` flags `discarded` so an editor can underline text that
-is being thrown away. That is the one place where having a tree is strictly
-better than having a dict.
+Its replacement is smaller but real: `header.removesuffix(" :")`. A header with
+no separator that still ends in ` :` — `formats, names, byteorder :`, which
+occurs in numpy — silently loses the colon. That reads like someone starting to
+write a type and stopping, and numpydoc says nothing about it, so the grammar
+keeps it as a `dangling_separator` node and `queries/diagnostics.scm` flags it.
 
 ### 2.3 Field values are not stripped after the split
 
@@ -208,14 +196,13 @@ section and everything in it simply vanishes into the previous section's text.
 An underline with arbitrary garbage appended, meanwhile, is accepted without
 comment.
 
-Reporting a diagnostic on a *near-miss* underline (a line of adornment
-characters directly under a plausible title, but too short) catches a real class
-of bug. Scanning 9917 docstrings from numpy, scipy and pandas with such a check
-produces **two warnings, both genuine**: `scipy.stats.matrix_t_gen.logpdf`
-silently loses its `Examples` section and `pandas.core.groupby.Grouping` silently
-loses its `Attributes` section, each to an underline three characters short. No
-false positives. The check is implemented on the numpydoc branch; the tree also
-makes it expressible as a query.
+1.10 now warns about this — `_is_at_section` reports a "potentially wrong
+underline length" for any adornment run of three or more characters whose length
+differs from the title's. It does not change what parses, so the section is
+still silently dropped; you just get told. Scanning numpy, scipy and pandas with
+an equivalent check finds two genuine cases: `scipy.stats.matrix_t_gen.logpdf`
+loses its `Examples` section and `pandas.core.groupby.Grouping` loses its
+`Attributes` section, each to an underline three characters short.
 
 ### 2.5 `.. index::` must be spelled exactly
 
@@ -298,7 +285,26 @@ consumer that unpacks it gets a `TypeError`. It appears to be a very old
 its meaning. In practice the branch is nearly unreachable, which is presumably
 why nobody has noticed.
 
-### 2.11 Two blank lines become one
+### 2.11 An empty section body yields one empty parameter
+
+`_parse_param_list` opens with `dedent_lines(content)`, and `dedent_lines([])`
+is `textwrap.dedent("").split("\n")` — which is `['']`, a list containing one
+empty line, not an empty list. The reader then reads that line, strips it to
+`''`, and produces `Parameter('', '', [])`.
+
+So a section with a header and no body does not come back empty:
+
+```python
+NumpyDocString("\nParameters\n----------")["Parameters"]
+```
+
+```
+[Parameter(name='', type='', desc=[])]
+```
+
+New in 1.10, and reproduced here.
+
+### 2.12 Two blank lines become one
 
 `_read_to_next_section` reassembles a section body one paragraph at a time and
 inserts exactly one `''` between them, so vertical whitespace inside a parameter
@@ -331,12 +337,12 @@ What the tree adds:
 
 Two levels, both reproducible:
 
-- `tools/conformance.py` — 82 curated cases, every docstring literal in
-  numpydoc's own `test_docscrape.py` plus 33 hand-written edge cases, compared
-  key-by-key against `NumpyDocString`. Includes the five docstrings numpydoc
-  rejects, which must be rejected identically.
-- `tools/sweep.py` — every public docstring in numpy, scipy and pandas: **9904
-  docstrings, 9904 identical**, with 13 rejected the same way by both parsers.
+- `tools/conformance.py` — 93 curated cases, every docstring literal in
+  numpydoc's own `test_docscrape.py` plus hand-written edge cases, compared
+  key-by-key against `NumpyDocString`. Includes the docstrings numpydoc rejects,
+  which must be rejected identically.
+- `tools/sweep.py` — every public docstring in numpy, scipy and pandas: **9907
+  docstrings, 9907 identical**, with 11 rejected the same way by both parsers.
 - `tools/fuzz.py` — takes real docstrings and corrupts the characters that carry
   structure (`-`, `=`, `:`, whitespace, newlines), then runs the same
   comparison: **10 900 mutants across three seeds, 0 disagreements**, 282
@@ -349,7 +355,7 @@ Both compare the full mapping — all 18 keys, including the exact list-of-lines
 representation of every description, so whitespace differences show up as
 failures rather than being normalised away.
 
-Seven real bugs in this grammar were found by the sweep and the fuzzer rather
+Real bugs in this grammar found by the sweep and the fuzzer rather
 than by the curated corpus: headers ending in `foo :`, trailing whitespace after
 a section title, trailing whitespace after a parameter header, the
 `strip`-before-split ordering of §2.2, a trailing *tab* in a header (`strip`
@@ -360,9 +366,9 @@ docstrings are messier than test fixtures, and corrupted ones messier still.
 ### numpydoc's own test suite
 
 `tools/numpydoc_swap.py` rebinds the parser names in `numpydoc.docscrape` and
-runs numpydoc's suite on treepydoc. The same 113 tests pass and the same 44 fail
-— test-for-test, not just by count — where the 44 are pre-existing failures of
-that checkout under a modern Python and a newer Sphinx.
+runs numpydoc's suite on treepydoc. The same 271 tests pass and the same 9 fail
+— test-for-test, not just by count — where the 9 are pre-existing failures of
+that release in this environment.
 
 Getting there needed one addition that is worth calling out, because it says
 something about what "drop-in" costs. `numpydoc.validate.Validator.section_titles`

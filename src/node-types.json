@@ -64,16 +64,6 @@
     "type": "entry_header",
     "named": true,
     "fields": {
-      "discarded": {
-        "multiple": false,
-        "required": false,
-        "types": [
-          {
-            "type": "discarded",
-            "named": true
-          }
-        ]
-      },
       "name": {
         "multiple": false,
         "required": true,
@@ -99,6 +89,10 @@
       "multiple": true,
       "required": false,
       "types": [
+        {
+          "type": "dangling_separator",
+          "named": true
+        },
         {
           "type": "separator",
           "named": true
@@ -487,11 +481,6 @@
     }
   },
   {
-    "type": "separator",
-    "named": true,
-    "fields": {}
-  },
-  {
     "type": "signature",
     "named": true,
     "fields": {},
@@ -544,16 +533,6 @@
     "type": "typed_entry_header",
     "named": true,
     "fields": {
-      "discarded": {
-        "multiple": false,
-        "required": false,
-        "types": [
-          {
-            "type": "discarded",
-            "named": true
-          }
-        ]
-      },
       "name": {
         "multiple": false,
         "required": false,
@@ -566,7 +545,7 @@
       },
       "type": {
         "multiple": false,
-        "required": false,
+        "required": true,
         "types": [
           {
             "type": "type",
@@ -579,6 +558,10 @@
       "multiple": true,
       "required": false,
       "types": [
+        {
+          "type": "dangling_separator",
+          "named": true
+        },
         {
           "type": "separator",
           "named": true
@@ -623,10 +606,6 @@
     }
   },
   {
-    "type": " : ",
-    "named": false
-  },
-  {
     "type": ":",
     "named": false
   },
@@ -635,7 +614,7 @@
     "named": false
   },
   {
-    "type": "discarded",
+    "type": "dangling_separator",
     "named": true
   },
   {
@@ -664,6 +643,10 @@
   },
   {
     "type": "section_underline",
+    "named": true
+  },
+  {
+    "type": "separator",
     "named": true
   },
   {

@@ -18,6 +18,7 @@
 
 #include <stdbool.h>
 #include <stddef.h>
+#include <stdint.h>
 #include <string.h>
 
 #include "tree_sitter/alloc.h"
@@ -38,8 +39,9 @@ enum TokenType {
   SEE_ALSO_ITEM_START,
   SEE_ALSO_CONTINUATION_START,
   ENTRY_FIRST,
+  ENTRY_SEPARATOR,
   ENTRY_SECOND,
-  ENTRY_DISCARDED,
+  DANGLING_SEPARATOR,
   ERROR_SENTINEL,
 };
 
@@ -59,6 +61,12 @@ typedef struct {
   // ` : ` that reaches into the trailing whitespace is not a separator at all:
   // `'... : '` strips to `'... :'`, which contains no separator.
   uint16_t header_end;
+  // Where this section's entries start. numpydoc 1.10 runs
+  // `dedent_lines(content)` over a section body before reading entries out of
+  // it, so an entry is a line at the body's common indent -- not necessarily
+  // at column 0. Learned from the first body line of each section.
+  uint16_t entry_indent;
+  bool entry_indent_set;
 } Scanner;
 
 // ---------------------------------------------------------------- char classes
@@ -204,6 +212,8 @@ static bool match_funcname(const char *s, uint32_t n, uint32_t *pos) {
 
   if (i < n && s[i] == ':') {
     uint32_t j = i + 1;
+    // `(py:)?` -- Sphinx's fully qualified role names, new in numpydoc 1.10.
+    if (j + 3 <= n && s[j] == 'p' && s[j + 1] == 'y' && s[j + 2] == ':') j += 3;
     uint32_t role_start = j;
     while (j < n && is_word(s[j])) j++;
     if (j == role_start) return false;
@@ -330,6 +340,67 @@ static bool underline_matches(const Line *underline, uint32_t title_len) {
   return true;
 }
 
+// The margin `dedent_lines(content)` would remove from a section body: the
+// smallest indentation of its non-blank lines. Taking the first line's indent
+// instead is wrong whenever the body opens with something deeper than the rest,
+// such as a See Also continuation with no item before it.
+//
+// The body runs to the next section header, which is a line preceded by a blank
+// and followed by a matching underline -- so each line is held back one
+// iteration before being counted, in case the line after it turns out to be
+// that underline.
+static uint32_t scan_body_indent(TSLexer *lexer) {
+  uint32_t min_indent = UINT32_MAX;
+  bool have_pending = false;
+  uint32_t pending_indent = 0;
+  uint32_t pending_len = 0;
+  bool pending_is_index = false;
+  bool pending_after_blank = false;
+  bool next_after_blank = false;
+
+  while (consume_line_terminator(lexer)) {
+    uint32_t indent = 0;
+    while (is_space(lexer->lookahead)) {
+      indent++;
+      lexer->advance(lexer, false);
+    }
+
+    if (lexer->eof(lexer) || is_newline(lexer->lookahead)) {
+      if (have_pending && pending_indent < min_indent)
+        min_indent = pending_indent;
+      have_pending = false;
+      next_after_blank = true;
+      if (lexer->eof(lexer)) break;
+      continue;
+    }
+
+    Line line;
+    read_line(lexer, &line);
+    uint32_t start;
+    uint32_t end;
+    line_strip(&line, &start, &end);
+
+    if (have_pending && pending_after_blank &&
+        (pending_is_index ||
+         (!line.truncated && underline_matches(&line, pending_len)))) {
+      return min_indent;  // the held-back line opened the next section
+    }
+    if (have_pending && pending_indent < min_indent)
+      min_indent = pending_indent;
+
+    have_pending = true;
+    pending_indent = indent;
+    pending_len = end - start;
+    pending_is_index =
+        end - start >= 10 && memcmp(line.data + start, ".. index::", 10) == 0;
+    pending_after_blank = next_after_blank;
+    next_after_blank = false;
+  }
+
+  if (have_pending && pending_indent < min_indent) min_indent = pending_indent;
+  return min_indent;
+}
+
 // ------------------------------------------------------------- token scanners
 
 // `header.strip().split(' : ')` -- the separator is literally space, colon,
@@ -352,7 +423,9 @@ static bool scan_entry_field(TSLexer *lexer, enum TokenType symbol,
 
   bool any = false;
   while (!lexer->eof(lexer) && !is_newline(lexer->lookahead)) {
-    if (lexer->lookahead == ' ') {
+    // `maxsplit=1`: only the first separator splits, so the type simply runs
+    // to the end of the header and never looks for another one.
+    if (lexer->lookahead == ' ' && symbol == ENTRY_FIRST) {
       uint32_t column = lexer->get_column(lexer);
       // Candidate separator: mark here first, so that if it turns out to be
       // one the token stops before the space.
@@ -365,18 +438,24 @@ static bool scan_entry_field(TSLexer *lexer, enum TokenType symbol,
           lexer->result_symbol = symbol;
           return true;
         }
-        // Not a separator: either the colon is ordinary content, as in a
-        // header ending `byteorder :`, or the ` : ` runs off the end of the
-        // stripped header. Either way the colon belongs to the field, so take
-        // the mark back past it.
+        // `header.removesuffix(" :")`: a header with no separator drops a
+        // trailing " :", so leave the mark before the space rather than
+        // extending it past the colon.
+        if (column + 2 == header_end) {
+          if (!any) return false;
+          lexer->result_symbol = symbol;
+          return true;
+        }
+        // An ordinary colon in the middle of the header, as in `byteorder :`
+        // followed by more text; take the mark back past it.
         lexer->mark_end(lexer);
         any = true;
       }
       continue;
     }
     if (is_strippable(lexer->lookahead)) {
-      // Only a space can open a separator, and whitespace that turns out to be
-      // trailing must stay outside the token, so leave the mark where it is.
+      // Whitespace that turns out to be trailing must stay outside the token,
+      // so leave the mark where it is.
       lexer->advance(lexer, false);
       continue;
     }
@@ -390,21 +469,30 @@ static bool scan_entry_field(TSLexer *lexer, enum TokenType symbol,
   return true;
 }
 
-// Everything past the second separator, which `split(' : ')[:2]` throws away.
-static bool scan_entry_discarded(TSLexer *lexer) {
-  bool any = false;
-  while (!lexer->eof(lexer) && !is_newline(lexer->lookahead)) {
-    if (is_strippable(lexer->lookahead)) {
-      lexer->advance(lexer, false);
-      continue;
-    }
+// A real separator is ` : ` that fits inside the stripped header; a dangling
+// one is the ` :` that `removesuffix` drops. They overlap, so the lexer cannot
+// tell them apart on length alone -- only the header's end position can.
+static bool scan_entry_separator(TSLexer *lexer, const bool *valid_symbols,
+                                 uint16_t header_end) {
+  if (lexer->lookahead != ' ') return false;
+  uint32_t column = lexer->get_column(lexer);
+  lexer->advance(lexer, false);
+  if (lexer->lookahead != ':') return false;
+  lexer->advance(lexer, false);
+
+  if (valid_symbols[ENTRY_SEPARATOR] && lexer->lookahead == ' ' &&
+      column + 3 <= header_end) {
     lexer->advance(lexer, false);
     lexer->mark_end(lexer);
-    any = true;
+    lexer->result_symbol = ENTRY_SEPARATOR;
+    return true;
   }
-  if (!any) return false;
-  lexer->result_symbol = ENTRY_DISCARDED;
-  return true;
+  if (valid_symbols[DANGLING_SEPARATOR] && column + 2 == header_end) {
+    lexer->mark_end(lexer);
+    lexer->result_symbol = DANGLING_SEPARATOR;
+    return true;
+  }
+  return false;
 }
 
 // ------------------------------------------------------------------- entry pt
@@ -419,10 +507,14 @@ bool tree_sitter_numpydoc_external_scanner_scan(void *payload, TSLexer *lexer,
   if (valid_symbols[ENTRY_FIRST]) {
     return scan_entry_field(lexer, ENTRY_FIRST, scanner->header_end);
   }
+  if (valid_symbols[ENTRY_SEPARATOR] || valid_symbols[DANGLING_SEPARATOR]) {
+    if (scan_entry_separator(lexer, valid_symbols, scanner->header_end)) {
+      return true;
+    }
+  }
   if (valid_symbols[ENTRY_SECOND]) {
     return scan_entry_field(lexer, ENTRY_SECOND, scanner->header_end);
   }
-  if (valid_symbols[ENTRY_DISCARDED]) return scan_entry_discarded(lexer);
 
   if (valid_symbols[NEWLINE] && is_newline(lexer->lookahead)) {
     consume_line_terminator(lexer);
@@ -460,7 +552,6 @@ bool tree_sitter_numpydoc_external_scanner_scan(void *payload, TSLexer *lexer,
   // Baseline for every guard below: the token ends here, whatever we read next.
   lexer->mark_end(lexer);
 
-  bool starts_with_space = lexer->lookahead == ' ';
   bool starts_with_indent = is_space(lexer->lookahead);
   bool consumed_indent = starts_with_indent;
   uint32_t indent_columns = 0;
@@ -522,6 +613,12 @@ bool tree_sitter_numpydoc_external_scanner_scan(void *payload, TSLexer *lexer,
       // section yet; let the parser recover rather than mis-lex the line.
       return false;
     }
+    // Learn the margin `dedent_lines` would strip from this section's body,
+    // which is what its entries are anchored to.
+    uint32_t body_indent = scan_body_indent(lexer);
+    scanner->entry_indent =
+        (uint16_t)(body_indent == UINT32_MAX ? 0 : body_indent);
+    scanner->entry_indent_set = true;
     lexer->result_symbol = symbol;
     return true;
   }
@@ -569,10 +666,14 @@ bool tree_sitter_numpydoc_external_scanner_scan(void *payload, TSLexer *lexer,
 
   if (valid_symbols[SEE_ALSO_ITEM_START] ||
       valid_symbols[SEE_ALSO_CONTINUATION_START]) {
+    // `_parse_see_also` also opens with `dedent_lines(content)`, so a
+    // continuation is a line indented past the body's margin, not past
+    // column 0.
     int match = see_also_line_match(line.data, line.len);
-    // `if not description and line.startswith(' ')` -- an ASCII space, and only
-    // when the line carries no description of its own.
-    bool continuation = match != SEE_ALSO_MATCH_WITH_DESC && starts_with_space;
+    // `if not description and line.startswith(' ')`, applied to the dedented
+    // line: only when it carries no description of its own.
+    bool continuation = match != SEE_ALSO_MATCH_WITH_DESC &&
+                        indent_columns > scanner->entry_indent;
 
     if (continuation) {
       if (valid_symbols[SEE_ALSO_CONTINUATION_START]) {
@@ -594,16 +695,15 @@ bool tree_sitter_numpydoc_external_scanner_scan(void *payload, TSLexer *lexer,
   // exception is the first line of a section body, which numpydoc reads as a
   // header whatever its indentation -- and that is exactly the position where
   // no description could be pending, so `INDENTED_LINE_START` is not valid.
-  if (starts_with_indent) {
-    if (valid_symbols[INDENTED_LINE_START]) {
-      lexer->result_symbol = INDENTED_LINE_START;
-      return true;
-    }
+  if (scanner->entry_indent_set && indent_columns == scanner->entry_indent) {
     if (valid_symbols[ENTRY_START]) {
       scanner->header_end = (uint16_t)(indent_columns + line.content_end);
       lexer->result_symbol = ENTRY_START;
       return true;
     }
+  } else if (valid_symbols[INDENTED_LINE_START]) {
+    lexer->result_symbol = INDENTED_LINE_START;
+    return true;
   } else if (valid_symbols[ENTRY_START]) {
     scanner->header_end = (uint16_t)(indent_columns + line.content_end);
     lexer->result_symbol = ENTRY_START;
@@ -620,6 +720,8 @@ void *tree_sitter_numpydoc_external_scanner_create(void) {
   scanner->eof_newline_emitted = false;
   scanner->eof_emitted = false;
   scanner->header_end = 0;
+  scanner->entry_indent = 0;
+  scanner->entry_indent_set = false;
   return scanner;
 }
 
@@ -635,13 +737,24 @@ unsigned tree_sitter_numpydoc_external_scanner_serialize(void *payload,
   buffer[2] = (char)scanner->eof_emitted;
   buffer[3] = (char)(scanner->header_end & 0xFF);
   buffer[4] = (char)((scanner->header_end >> 8) & 0xFF);
-  return 5;
+  buffer[5] = (char)(scanner->entry_indent & 0xFF);
+  buffer[6] = (char)((scanner->entry_indent >> 8) & 0xFF);
+  buffer[7] = (char)scanner->entry_indent_set;
+  return 8;
 }
 
 void tree_sitter_numpydoc_external_scanner_deserialize(void *payload,
                                                        const char *buffer,
                                                        unsigned length) {
   Scanner *scanner = (Scanner *)payload;
+  if (length >= 8) {
+    scanner->entry_indent = (uint16_t)((unsigned char)buffer[5]) |
+                            (uint16_t)((unsigned char)buffer[6] << 8);
+    scanner->entry_indent_set = (bool)buffer[7];
+  } else {
+    scanner->entry_indent = 0;
+    scanner->entry_indent_set = false;
+  }
   if (length >= 5) {
     scanner->after_blank = (bool)buffer[0];
     scanner->eof_newline_emitted = (bool)buffer[1];

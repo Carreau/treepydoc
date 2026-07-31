@@ -6,6 +6,8 @@ must parse without raising when fed to numpydoc.docscrape.NumpyDocString.
 RAISING_CORPUS is a list of (name, docstring_text, exception_type_name)
 triples for inputs that are expected to make NumpyDocString raise.
 
+Targets numpydoc 1.10.
+
 Sources, in priority order:
   1. Docstring literals from numpydoc/numpydoc/tests/test_docscrape.py
      (copied verbatim).
@@ -13,6 +15,8 @@ Sources, in priority order:
      numpydoc/numpydoc/tests/tinybuild/numpydoc_test_module.py.
   3. Hand-written edge cases (see the "Hand-written edge cases" section
      below).
+  4. Hand-written edge cases targeting behaviour that is new or changed
+     in numpydoc 1.10 (see the corresponding section below).
 """
 
 CORPUS: list[tuple[str, str]] = []
@@ -24,627 +28,132 @@ RAISING_CORPUS: list[tuple[str, str, str]] = []
 # ---------------------------------------------------------------------------
 
 # doc_txt
-doc_txt = '''\
-  numpy.multivariate_normal(mean, cov, shape=None, spam=None)
-
-  Draw values from a multivariate normal distribution with specified
-  mean and covariance.
-
-  The multivariate normal or Gaussian distribution is a generalisation
-  of the one-dimensional normal distribution to higher dimensions.
-
-  Parameters
-  ----------
-  mean : (N,) ndarray
-      Mean of the N-dimensional distribution.
-
-      .. math::
-
-         (1+2+3)/3
-
-  cov : (N, N) ndarray
-      Covariance matrix of the distribution.
-  shape : tuple of ints
-      Given a shape of, for example, (m,n,k), m*n*k samples are
-      generated, and packed in an m-by-n-by-k arrangement.  Because
-      each sample is N-dimensional, the output shape is (m,n,k,N).
-
-  Returns
-  -------
-  out : ndarray
-      The drawn samples, arranged according to `shape`.  If the
-      shape given is (m,n,...), then the shape of `out` is
-      (m,n,...,N).
-
-      In other words, each entry ``out[i,j,...,:]`` is an N-dimensional
-      value drawn from the distribution.
-  list of str
-      This is not a real return value.  It exists to test
-      anonymous return values.
-  no_description
-
-  Other Parameters
-  ----------------
-  spam : parrot
-      A parrot off its mortal coil.
-
-  Raises
-  ------
-  RuntimeError
-      Some error
-
-  Warns
-  -----
-  RuntimeWarning
-      Some warning
-
-  Warnings
-  --------
-  Certain warnings apply.
-
-  Notes
-  -----
-  Instead of specifying the full covariance matrix, popular
-  approximations include:
-
-    - Spherical covariance (`cov` is a multiple of the identity matrix)
-    - Diagonal covariance (`cov` has non-negative elements only on the diagonal)
-
-  This geometrical property can be seen in two dimensions by plotting
-  generated data-points:
-
-  >>> mean = [0,0]
-  >>> cov = [[1,0],[0,100]] # diagonal covariance, points lie on x or y-axis
-
-  >>> x,y = multivariate_normal(mean,cov,5000).T
-  >>> plt.plot(x,y,'x'); plt.axis('equal'); plt.show()
-
-  Note that the covariance matrix must be symmetric and non-negative
-  definite.
-
-  References
-  ----------
-  .. [1] A. Papoulis, "Probability, Random Variables, and Stochastic
-         Processes," 3rd ed., McGraw-Hill Companies, 1991
-  .. [2] R.O. Duda, P.E. Hart, and D.G. Stork, "Pattern Classification,"
-         2nd ed., Wiley, 2001.
-
-  See Also
-  --------
-  some, other, funcs
-  otherfunc : relationship
-
-  Examples
-  --------
-  >>> mean = (1,2)
-  >>> cov = [[1,0],[1,0]]
-  >>> x = multivariate_normal(mean,cov,(3,3))
-  >>> print(x.shape)
-  (3, 3, 2)
-
-  The following is probably true, given that 0.6 is roughly twice the
-  standard deviation:
-
-  >>> print(list((x[0, 0, :] - mean) < 0.6))
-  [True, True]
-
-  .. index:: random
-     :refguide: random;distributions, random;gauss
-
-  '''
-CORPUS.append(("test_docscrape.doc_txt", doc_txt))
-
+CORPUS.append(("test_docscrape.doc_txt", '  numpy.multivariate_normal(mean, cov, shape=None, spam=None)\n\n  Draw values from a multivariate normal distribution with specified\n  mean and covariance.\n\n  The multivariate normal or Gaussian distribution is a generalisation\n  of the one-dimensional normal distribution to higher dimensions.\n\n  Parameters\n  ----------\n  mean : (N,) ndarray\n      Mean of the N-dimensional distribution.\n\n      .. math::\n\n         (1+2+3)/3\n\n  cov : (N, N) ndarray\n      Covariance matrix of the distribution.\n  shape : tuple of ints\n      Given a shape of, for example, (m,n,k), m*n*k samples are\n      generated, and packed in an m-by-n-by-k arrangement.  Because\n      each sample is N-dimensional, the output shape is (m,n,k,N).\n  dtype : data type object, optional (default : float)\n      The type and size of the data to be returned.\n\n  Returns\n  -------\n  out : ndarray\n      The drawn samples, arranged according to `shape`.  If the\n      shape given is (m,n,...), then the shape of `out` is\n      (m,n,...,N).\n\n      In other words, each entry ``out[i,j,...,:]`` is an N-dimensional\n      value drawn from the distribution.\n  list of str\n      This is not a real return value.  It exists to test\n      anonymous return values.\n  no_description\n\n  Other Parameters\n  ----------------\n  spam : parrot\n      A parrot off its mortal coil.\n\n  Raises\n  ------\n  RuntimeError\n      Some error\n\n  Warns\n  -----\n  RuntimeWarning\n      Some warning\n\n  Warnings\n  --------\n  Certain warnings apply.\n\n  Notes\n  -----\n  Instead of specifying the full covariance matrix, popular\n  approximations include:\n\n    - Spherical covariance (`cov` is a multiple of the identity matrix)\n    - Diagonal covariance (`cov` has non-negative elements only on the diagonal)\n\n  This geometrical property can be seen in two dimensions by plotting\n  generated data-points:\n\n  >>> mean = [0,0]\n  >>> cov = [[1,0],[0,100]] # diagonal covariance, points lie on x or y-axis\n\n  >>> x,y = multivariate_normal(mean,cov,5000).T\n  >>> plt.plot(x,y,\'x\'); plt.axis(\'equal\'); plt.show()\n\n  Note that the covariance matrix must be symmetric and non-negative\n  definite.\n\n  References\n  ----------\n  .. [1] A. Papoulis, "Probability, Random Variables, and Stochastic\n         Processes," 3rd ed., McGraw-Hill Companies, 1991\n  .. [2] R.O. Duda, P.E. Hart, and D.G. Stork, "Pattern Classification,"\n         2nd ed., Wiley, 2001.\n\n  See Also\n  --------\n  some, other, funcs\n  otherfunc : relationship\n  :py:meth:`spyder.widgets.mixins.GetHelpMixin.show_object_info`\n\n  Examples\n  --------\n  >>> mean = (1,2)\n  >>> cov = [[1,0],[1,0]]\n  >>> x = multivariate_normal(mean,cov,(3,3))\n  >>> print(x.shape)\n  (3, 3, 2)\n\n  The following is probably true, given that 0.6 is roughly twice the\n  standard deviation:\n\n  >>> print(list((x[0, 0, :] - mean) < 0.6))\n  [True, True]\n\n  .. index:: random\n     :refguide: random;distributions, random;gauss\n\n  '))
 
 # doc_yields_txt
-doc_yields_txt = """
-Test generator
-
-Yields
-------
-a : int
-    The number of apples.
-b : int
-    The number of bananas.
-int
-    The number of unknowns.
-"""
-CORPUS.append(("test_docscrape.doc_yields_txt", doc_yields_txt))
-
+CORPUS.append(("test_docscrape.doc_yields_txt", '\nTest generator\n\nYields\n------\na : int\n    The number of apples.\nb : int\n    The number of bananas.\nint\n    The number of unknowns.\n'))
 
 # doc_sent_txt
-doc_sent_txt = """
-Test generator
+CORPUS.append(("test_docscrape.doc_sent_txt", '\nTest generator\n\nYields\n------\na : int\n    The number of apples.\n\nReceives\n--------\nb : int\n    The number of bananas.\nc : int\n    The number of oranges.\n\n'))
 
-Yields
-------
-a : int
-    The number of apples.
-
-Receives
---------
-b : int
-    The number of bananas.
-c : int
-    The number of oranges.
-
-"""
-CORPUS.append(("test_docscrape.doc_sent_txt", doc_sent_txt))
-
-
-# test_returnyield: doc_text (Returns + Yields together -> raises ValueError)
-_test_returnyield_doc_text = """
-Test having returns and yields.
-
-Returns
--------
-int
-    The number of apples.
-
-Yields
-------
-a : int
-    The number of apples.
-b : int
-    The number of bananas.
-
-"""
-RAISING_CORPUS.append(
-    ("test_docscrape.test_returnyield.doc_text", _test_returnyield_doc_text, "ValueError")
-)
-
+# test_returnyield: doc_text (Returns + Yields together; does not raise in 1.10)
+CORPUS.append(("test_docscrape.test_returnyield.doc_text", '\nTest having returns and yields.\n\nReturns\n-------\nint\n    The number of apples.\n\nYields\n------\na : int\n    The number of apples.\nb : int\n    The number of bananas.\n\n'))
 
 # test_section_twice: doc_text (Notes section appears twice -> raises ValueError)
-_test_section_twice_doc_text = """
-Test having a section Notes twice
-
-Notes
------
-See the next note for more information
-
-Notes
------
-That should break...
-"""
-RAISING_CORPUS.append(
-    ("test_docscrape.test_section_twice.doc_text", _test_section_twice_doc_text, "ValueError")
-)
+RAISING_CORPUS.append(("test_docscrape.test_section_twice.doc_text", '\nTest having a section Notes twice\n\nNotes\n-----\nSee the next note for more information\n\nNotes\n-----\nThat should break...\n', "ValueError"))
 
 # test_section_twice: Dummy class docstring (Notes section twice)
-_test_section_twice_dummy_class_doc = """
-        Dummy class.
-
-        Notes
-        -----
-        First note.
-
-        Notes
-        -----
-        Second note.
-
-        """
-RAISING_CORPUS.append(
-    ("test_docscrape.test_section_twice.Dummy_class_doc",
-     _test_section_twice_dummy_class_doc, "ValueError")
-)
+RAISING_CORPUS.append(("test_docscrape.test_section_twice.Dummy_class_doc", '\n        Dummy class.\n\n        Notes\n        -----\n        First note.\n\n        Notes\n        -----\n        Second note.\n\n        ', "ValueError"))
 
 # test_section_twice: Dummy.spam / Dummy.ham method docstrings (fine on their own)
-CORPUS.append(("test_docscrape.test_section_twice.Dummy.spam", "Spam\n\nSpam spam."))
-CORPUS.append(("test_docscrape.test_section_twice.Dummy.ham", "Cheese\n\nNo cheese."))
+CORPUS.append(("test_docscrape.test_section_twice.Dummy.spam", 'Spam\n\nSpam spam.'))
+CORPUS.append(("test_docscrape.test_section_twice.Dummy.ham", 'Cheese\n\nNo cheese.'))
 
 # test_section_twice: dummy_func docstring (Notes section twice)
-_test_section_twice_dummy_func_doc = """
-        Dummy function.
-
-        Notes
-        -----
-        First note.
-
-        Notes
-        -----
-        Second note.
-        """
-RAISING_CORPUS.append(
-    ("test_docscrape.test_section_twice.dummy_func_doc",
-     _test_section_twice_dummy_func_doc, "ValueError")
-)
+RAISING_CORPUS.append(("test_docscrape.test_section_twice.dummy_func_doc", '\n        Dummy function.\n\n        Notes\n        -----\n        First note.\n\n        Notes\n        -----\n        Second note.\n        ', "ValueError"))
 
 
 # doc2
-_doc2_txt = """
-    Returns array of indices of the maximum values of along the given axis.
-
-    Parameters
-    ----------
-    a : {array_like}
-        Array to look in.
-    axis : {None, integer}
-        If None, the index is into the flattened array, otherwise along
-        the specified axis"""
-CORPUS.append(("test_docscrape.doc2", _doc2_txt))
-
+CORPUS.append(("test_docscrape.doc2", '\n    Returns array of indices of the maximum values of along the given axis.\n\n    Parameters\n    ----------\n    a : {array_like}\n        Array to look in.\n    axis : {None, integer}\n        If None, the index is into the flattened array, otherwise along\n        the specified axis'))
 
 # doc3
-_doc3_txt = """
-    my_signature(*params, **kwds)
-
-    Return this and that.
-    """
-CORPUS.append(("test_docscrape.doc3", _doc3_txt))
-
+CORPUS.append(("test_docscrape.doc3", '\n    my_signature(*params, **kwds)\n\n    Return this and that.\n    '))
 
 # doc4
-_doc4_txt = """a.conj()
-
-    Return an array with all complex-valued elements conjugated."""
-CORPUS.append(("test_docscrape.doc4", _doc4_txt))
-
+CORPUS.append(("test_docscrape.doc4", 'a.conj()\n\n    Return an array with all complex-valued elements conjugated.'))
 
 # doc5
-_doc5_txt = """
-    a.something()
-
-    Raises
-    ------
-    LinAlgException
-        If array is singular.
-
-    Warns
-    -----
-    SomeWarning
-        If needed
-    """
-CORPUS.append(("test_docscrape.doc5", _doc5_txt))
-
+CORPUS.append(("test_docscrape.doc5", '\n    a.something()\n\n    Raises\n    ------\n    LinAlgException\n        If array is singular.\n\n    Warns\n    -----\n    SomeWarning\n        If needed\n    '))
 
 # test_see_also: doc6
-_doc6_txt = """
-    z(x,theta)
+CORPUS.append(("test_docscrape.test_see_also.doc6", 'z(x,theta)\n\n    See Also\n    --------\n    func_a, func_b, func_c\n    func_d : some equivalent func\n    foo.func_e : some other func over\n             multiple lines\n    func_f, func_g, :meth:`func_h`, func_j,\n    func_k\n    func_f1, func_g1, :meth:`func_h1`, func_j1\n    func_f2, func_g2, :meth:`func_h2`, func_j2 : description of multiple\n    :obj:`baz.obj_q`\n    :obj:`~baz.obj_r`\n    :class:`class_j`: fubar\n        foobar\n    '))
 
-    See Also
-    --------
-    func_a, func_b, func_c
-    func_d : some equivalent func
-    foo.func_e : some other func over
-             multiple lines
-    func_f, func_g, :meth:`func_h`, func_j,
-    func_k
-    func_f1, func_g1, :meth:`func_h1`, func_j1
-    func_f2, func_g2, :meth:`func_h2`, func_j2 : description of multiple
-    :obj:`baz.obj_q`
-    :obj:`~baz.obj_r`
-    :class:`class_j`: fubar
-        foobar
-    """
-CORPUS.append(("test_docscrape.test_see_also.doc6", _doc6_txt))
-
-
-# test_see_also_parse_error: text (See Also parse error -> ParseError)
-_see_also_parse_error_text = (
-    """
-    z(x,theta)
-
-    See Also
-    --------
-    :func:`~foo`
-    """)
-RAISING_CORPUS.append(
-    ("test_docscrape.test_see_also_parse_error.text",
-     _see_also_parse_error_text, "ParseError")
-)
-
+# test_see_also_parse_error: text (See Also parse error -> ValueError in 1.10)
+RAISING_CORPUS.append(("test_docscrape.test_see_also_parse_error.text", '\n    z(x,theta)\n\n    See Also\n    --------\n    :func:`~foo`\n    ', "ValueError"))
 
 # test_see_also_print: Dummy class docstring
-_see_also_print_dummy_doc = """
-        See Also
-        --------
-        func_a, func_b
-        func_c : some relationship
-                 goes here
-        func_d
-        """
-CORPUS.append(("test_docscrape.test_see_also_print.Dummy", _see_also_print_dummy_doc))
-
+CORPUS.append(("test_docscrape.test_see_also_print.Dummy", '\n        See Also\n        --------\n        func_a, func_b\n        func_c : some relationship\n                 goes here\n        func_d\n        '))
 
 # test_see_also_trailing_comma_warning: (warns, does not raise)
-_see_also_trailing_comma_doc = """
-            z(x,theta)
-
-            See Also
-            --------
-            func_f2, func_g2, :meth:`func_h2`, func_j2, : description of multiple
-            :class:`class_j`: fubar
-                foobar
-            """
-CORPUS.append(
-    ("test_docscrape.test_see_also_trailing_comma_warning", _see_also_trailing_comma_doc)
-)
-
+CORPUS.append(("test_docscrape.test_see_also_trailing_comma_warning", '\n            z(x,theta)\n\n            See Also\n            --------\n            func_f2, func_g2, :meth:`func_h2`, func_j2, : description of multiple\n            :class:`class_j`: fubar\n                foobar\n            '))
 
 # test_unknown_section: doc_text (warns about unknown section, does not raise)
-_unknown_section_doc_text = """
-Test having an unknown section
-
-Mope
-----
-This should be ignored and warned about
-"""
-CORPUS.append(("test_docscrape.test_unknown_section.doc_text", _unknown_section_doc_text))
-
+CORPUS.append(("test_docscrape.test_unknown_section.doc_text", '\nTest having an unknown section\n\nMope\n----\nThis should be ignored and warned about\n'))
 
 # test_unknown_section: BadSection class docstring
-_unknown_section_badsection_doc = """Class with bad section.
-
-        Nope
-        ----
-        This class has a nope section.
-        """
-CORPUS.append(
-    ("test_docscrape.test_unknown_section.BadSection", _unknown_section_badsection_doc)
-)
-
+CORPUS.append(("test_docscrape.test_unknown_section.BadSection", 'Class with bad section.\n\n        Nope\n        ----\n        This class has a nope section.\n        '))
 
 # doc7
-_doc7_txt = """
+CORPUS.append(("test_docscrape.doc7", '\n\n        Doc starts on second line.\n\n        '))
 
-        Doc starts on second line.
+# doc8: parameter with a colon and no type (header.removesuffix(' :'))
+CORPUS.append(("test_docscrape.doc8", '\n\n        Parameters with colon and no types:\n\n        Parameters\n        ----------\n\n        data :\n            some stuff, technically invalid\n        '))
 
-        """
-CORPUS.append(("test_docscrape.doc7", _doc7_txt))
-
+# test_returns_with_roles_no_names: a Returns entry using a sphinx role as the type
+CORPUS.append(("test_docscrape.test_returns_with_roles_no_names", '\n        Returns\n        -------\n        str or :class:`NumpyDocString`\n        '))
 
 # test_no_summary
-_no_summary_txt = """
-    Parameters
-    ----------"""
-CORPUS.append(("test_docscrape.test_no_summary", _no_summary_txt))
-
+CORPUS.append(("test_docscrape.test_no_summary", '\n        Parameters\n        ----------'))
 
 # test_unicode
-_unicode_txt = """
-    öäöäöäöäöåååå
-
-    öäöäöäööäååå
-
-    Parameters
-    ----------
-    ååå : äää
-        ööö
-
-    Returns
-    -------
-    ååå : ööö
-        äää
-
-    """
-CORPUS.append(("test_docscrape.test_unicode", _unicode_txt))
-
+CORPUS.append(("test_docscrape.test_unicode", '\n    öäöäöäöäöåååå\n\n    öäöäöäööäååå\n\n    Parameters\n    ----------\n    ååå : äää\n        ööö\n\n    Returns\n    -------\n    ååå : ööö\n        äää\n\n    '))
 
 # test_plot_examples (three variants)
-_plot_examples_1 = """
-    Examples
-    --------
-    >>> import matplotlib.pyplot as plt
-    >>> plt.plot([1,2,3],[4,5,6])
-    >>> plt.show()
-    """
-CORPUS.append(("test_docscrape.test_plot_examples.1", _plot_examples_1))
-
-_plot_examples_2 = """
-    Examples
-    --------
-    >>> from matplotlib import pyplot as plt
-    >>> plt.plot([1,2,3],[4,5,6])
-    >>> plt.show()
-    """
-CORPUS.append(("test_docscrape.test_plot_examples.2", _plot_examples_2))
-
-_plot_examples_3 = """
-    Examples
-    --------
-    .. plot::
-
-       import matplotlib.pyplot as plt
-       plt.plot([1,2,3],[4,5,6])
-       plt.show()
-    """
-CORPUS.append(("test_docscrape.test_plot_examples.3", _plot_examples_3))
-
-
-# test_use_blockquotes
-_use_blockquotes_txt = """
-    Parameters
-    ----------
-    abc : def
-        ghi
-    jkl
-        mno
-
-    Returns
-    -------
-    ABC : DEF
-        GHI
-    JKL
-        MNO
-    """
-CORPUS.append(("test_docscrape.test_use_blockquotes", _use_blockquotes_txt))
-
+CORPUS.append(("test_docscrape.test_plot_examples.1", '\n    Examples\n    --------\n    >>> import matplotlib.pyplot as plt\n    >>> plt.plot([1,2,3],[4,5,6])\n    >>> plt.show()\n    '))
+CORPUS.append(("test_docscrape.test_plot_examples.2", '\n    Examples\n    --------\n    >>> from matplotlib import pyplot as plt\n    >>> plt.plot([1,2,3],[4,5,6])\n    >>> plt.show()\n    '))
+CORPUS.append(("test_docscrape.test_plot_examples.3", '\n    Examples\n    --------\n    .. plot::\n\n       import matplotlib.pyplot as plt\n       plt.plot([1,2,3],[4,5,6])\n       plt.show()\n    '))
 
 # test_class_members: Dummy class and its methods
-_class_members_dummy_doc = """
-        Dummy class.
+CORPUS.append(("test_docscrape.test_class_members.Dummy", '\n        Dummy class.\n\n        '))
+CORPUS.append(("test_docscrape.test_class_members.Dummy.spam", 'Spam\n\nSpam spam.'))
+CORPUS.append(("test_docscrape.test_class_members.Dummy.ham", 'Cheese\n\nNo cheese.'))
+CORPUS.append(("test_docscrape.test_class_members.Dummy.spammity", 'Spammity index'))
+CORPUS.append(("test_docscrape.test_class_members.Dummy.Ignorable", 'local class, to be ignored'))
 
-        """
-CORPUS.append(("test_docscrape.test_class_members.Dummy", _class_members_dummy_doc))
-CORPUS.append(("test_docscrape.test_class_members.Dummy.spam", "Spam\n\nSpam spam."))
-CORPUS.append(("test_docscrape.test_class_members.Dummy.ham", "Cheese\n\nNo cheese."))
-CORPUS.append(("test_docscrape.test_class_members.Dummy.spammity", "Spammity index"))
-CORPUS.append(
-    ("test_docscrape.test_class_members.Dummy.Ignorable", "local class, to be ignored")
-)
-
-_class_members_subdummy_doc = """
-        Subclass of Dummy class.
-
-        """
-CORPUS.append(("test_docscrape.test_class_members.SubDummy", _class_members_subdummy_doc))
-CORPUS.append(
-    ("test_docscrape.test_class_members.SubDummy.ham",
-     "Cheese\n\nNo cheese.\nOverloaded Dummy.ham")
-)
-CORPUS.append(("test_docscrape.test_class_members.SubDummy.bar", "Bar\n\nNo bar"))
+CORPUS.append(("test_docscrape.test_class_members.SubDummy", '\n        Subclass of Dummy class.\n\n        '))
+CORPUS.append(("test_docscrape.test_class_members.SubDummy.ham", 'Cheese\n\nNo cheese.\nOverloaded Dummy.ham'))
+CORPUS.append(("test_docscrape.test_class_members.SubDummy.bar", 'Bar\n\nNo bar'))
 
 
 # test_duplicate_signature
-_duplicate_signature_txt = """
-    z(x1, x2)
-
-    z(a, theta)
-    """
-CORPUS.append(("test_docscrape.test_duplicate_signature", _duplicate_signature_txt))
+CORPUS.append(("test_docscrape.test_duplicate_signature", '\n    z(x1, x2)\n\n    z(a, theta)\n    '))
 
 
 # class_doc_txt
-class_doc_txt = """
-    Foo
-
-    Parameters
-    ----------
-    f : callable ``f(t, y, *f_args)``
-        Aaa.
-    jac : callable ``jac(t, y, *jac_args)``
-
-        Bbb.
-
-    Attributes
-    ----------
-    t : float
-        Current time.
-    y : ndarray
-        Current variable values.
-
-        * hello
-        * world
-    an_attribute : float
-        The docstring is printed instead
-    no_docstring : str
-        But a description
-    no_docstring2 : str
-    multiline_sentence
-    midword_period
-    no_period
-
-    Methods
-    -------
-    a
-    b
-    c
-
-    Examples
-    --------
-    For usage examples, see `ode`.
-"""
-CORPUS.append(("test_docscrape.class_doc_txt", class_doc_txt))
+CORPUS.append(("test_docscrape.class_doc_txt", '\n    Foo\n\n    Parameters\n    ----------\n    f : callable ``f(t, y, *f_args)``\n        Aaa.\n    jac : callable ``jac(t, y, *jac_args)``\n\n        Bbb.\n\n    Attributes\n    ----------\n    t : float\n        Current time.\n    y : ndarray\n        Current variable values.\n\n        * hello\n        * world\n    an_attribute : float\n        The docstring is printed instead\n    no_docstring : str\n        But a description\n    no_docstring2 : str\n    multiline_sentence\n    midword_period\n    no_period\n\n    Methods\n    -------\n    a\n    b\n    c\n\n    Other Parameters\n    ----------------\n\n    another parameter : str\n        This parameter is less important.\n\n    Notes\n    -----\n\n    Some notes about the class.\n\n    Examples\n    --------\n    For usage examples, see `ode`.\n'))
 
 
 # test_class_members_doc_sphinx: property docstrings
-CORPUS.append(
-    ("test_docscrape.test_class_members_doc_sphinx.an_attribute", "Test attribute")
-)
-CORPUS.append(
-    ("test_docscrape.test_class_members_doc_sphinx.multiline_sentence",
-     """This is a
-            sentence. It spans multiple lines.""")
-)
-CORPUS.append(
-    ("test_docscrape.test_class_members_doc_sphinx.midword_period",
-     "The sentence for numpy.org.")
-)
-CORPUS.append(
-    ("test_docscrape.test_class_members_doc_sphinx.no_period",
-     """This does not have a period
-            so we truncate its summary to the first linebreak
-
-            Apparently.
-            """)
-)
+CORPUS.append(("test_docscrape.test_class_members_doc_sphinx.an_attribute", 'Test attribute'))
+CORPUS.append(("test_docscrape.test_class_members_doc_sphinx.multiline_sentence", 'This is a\n            sentence. It spans multiple lines.'))
+CORPUS.append(("test_docscrape.test_class_members_doc_sphinx.midword_period", 'The sentence for numpy.org.'))
+CORPUS.append(("test_docscrape.test_class_members_doc_sphinx.no_period", 'This does not have a period\n            so we truncate its summary to the first linebreak\n\n            Apparently.\n            '))
 
 
 # test_class_attributes_as_member_list: Foo class docstring
-_class_attributes_foo_doc = """
-        Class docstring.
-
-        Attributes
-        ----------
-        an_attribute
-            Another description that is not used.
-
-        """
-CORPUS.append(
-    ("test_docscrape.test_class_attributes_as_member_list.Foo",
-     _class_attributes_foo_doc)
-)
-CORPUS.append(
-    ("test_docscrape.test_class_attributes_as_member_list.Foo.an_attribute",
-     "Test attribute")
-)
+CORPUS.append(("test_docscrape.test_class_attributes_as_member_list.Foo", '\n        Class docstring.\n\n        Attributes\n        ----------\n        an_attribute\n            Another description that is not used.\n\n        '))
+CORPUS.append(("test_docscrape.test_class_attributes_as_member_list.Foo.an_attribute", 'Test attribute'))
 
 
 # test_nonstandard_property
-CORPUS.append(
-    ("test_docscrape.test_nonstandard_property.attr", "test attribute")
-)
+CORPUS.append(("test_docscrape.test_nonstandard_property.attr", 'test attribute'))
 
 
 # test_args_and_kwargs
-_args_and_kwargs_txt = """
-    Parameters
-    ----------
-    param1 : int
-        First parameter
-    *args : tuple
-        Arguments
-    **kwargs : dict
-        Keyword arguments
-    """
-CORPUS.append(("test_docscrape.test_args_and_kwargs", _args_and_kwargs_txt))
+CORPUS.append(("test_docscrape.test_args_and_kwargs", '\n    Parameters\n    ----------\n    param1 : int\n        First parameter\n    *args : tuple\n        Arguments\n    **kwargs : dict\n        Keyword arguments\n    '))
 
 
 # test_autoclass
-_autoclass_txt = '''
-A top section before
-
-.. autoclass:: str
-    '''
-CORPUS.append(("test_docscrape.test_autoclass", _autoclass_txt))
+CORPUS.append(("test_docscrape.test_autoclass", '\nA top section before\n\n.. autoclass:: str\n    '))
 
 
 # xref_doc_txt
-xref_doc_txt = """
-Test xref in Parameters, Other Parameters and Returns
+CORPUS.append(("test_docscrape.xref_doc_txt", '\nTest xref in Parameters, Other Parameters and Returns\n\nParameters\n----------\np1 : int\n    Integer value\n\np2 : float, optional\n    Integer value\n\nOther Parameters\n----------------\np3 : list[int]\n    List of integers\np4 : :class:`pandas.DataFrame`\n    A dataframe\np5 : sequence of `int`\n    A sequence\n\nReturns\n-------\nout : array\n    Numerical return value\n'))
 
-Parameters
-----------
-p1 : int
-    Integer value
 
-p2 : float, optional
-    Integer value
-
-Other Parameters
-----------------
-p3 : list[int]
-    List of integers
-p4 : :class:`pandas.DataFrame`
-    A dataframe
-p5 : sequence of `int`
-    A sequence
-
-Returns
--------
-out : array
-    Numerical return value
-"""
-CORPUS.append(("test_docscrape.xref_doc_txt", xref_doc_txt))
+# test_namedtuple_class_docstring: MyFoo / MyFooWithParams class docstrings
+CORPUS.append(("test_docscrape.test_namedtuple_class_docstring.MyFoo", "MyFoo's class docstring"))
+CORPUS.append(("test_docscrape.test_namedtuple_class_docstring.MyFooWithParams", "\n        MyFoo's class docstring\n\n        Parameters\n        ----------\n        bar : str\n           The bar attribute\n        baz : str\n           The baz attribute\n        "))
 
 
 # ---------------------------------------------------------------------------
@@ -923,4 +432,86 @@ CORPUS.append((
     "        out : int\n"
     "            The computed result.\n"
     "        "
+))
+
+
+# ---------------------------------------------------------------------------
+# 4. Hand-written edge cases targeting numpydoc 1.10 behaviour
+# ---------------------------------------------------------------------------
+
+# --- parameter header ending in " :" with nothing after ---------------------
+# 1.10 does `header.removesuffix(" :")` when " : " is not found in the
+# header, so a bare trailing " :" is stripped and the whole header becomes
+# the (typeless) name.
+
+CORPUS.append((
+    "edge_110.param_header_trailing_colon_only",
+    "Summary.\n\nParameters\n----------\nx :\n"
+    "    A parameter header ending in ' :' with no type text after it.\n"
+    "y : int\n    A normal parameter for comparison.\n"
+))
+
+# --- type containing ' : ' (1.10 uses split(" : ", maxsplit=1)) -------------
+# NOTE: the pre-existing edge.param_header_two_colons and
+# edge.param_header_three_colons cases above already exercise this; these
+# add coverage for the Other Parameters / Returns sections too.
+
+CORPUS.append((
+    "edge_110.other_parameters_type_with_colon",
+    "Summary.\n\nOther Parameters\n----------------\nx : Mapping[str : int]\n"
+    "    A parameter whose type contains a single ' : ' separator beyond\n"
+    "    the header's own.\n"
+))
+
+CORPUS.append((
+    "edge_110.returns_type_with_three_colons",
+    "Summary.\n\nReturns\n-------\nout : dict of {str : int} : weird : still\n"
+    "    A description.\n"
+))
+
+# --- See Also role with a "py:" prefix (1.10's _role allows "(py:)?\\w+") ---
+
+CORPUS.append((
+    "edge_110.see_also_py_role",
+    "Summary.\n\nSee Also\n--------\n:py:meth:`bytes.decode`\n:meth:`bytes.encode`\n"
+))
+
+# --- a section whose body is empty (dedent_lines([]) returns ['']) ----------
+# An empty Parameters section (immediately followed by another section)
+# yields a spurious single Parameter with an empty name/type/desc, but does
+# not raise.
+
+CORPUS.append((
+    "edge_110.empty_section_body",
+    "Summary.\n\nParameters\n----------\n\nReturns\n-------\nx : int\n    A value.\n"
+))
+
+# --- indented docstring with several parameters (1.10 dedents the section --
+# --- body first, via dedent_lines(content) in _parse_param_list) -----------
+
+CORPUS.append((
+    "edge_110.indented_section_body_several_params",
+    "Summary.\n\nParameters\n----------\n"
+    "    x : int\n        Extra indented relative to the header underline.\n"
+    "    y : float\n        Another extra indented parameter.\n"
+    "    z : str\n        A third extra indented parameter.\n"
+))
+
+# --- underline length differs from the title, both longer and shorter ------
+# (1.10 warns via _error_location(..., error=False) in _is_at_section).
+# The pre-existing edge.underline_longer_than_title and
+# edge.underline_shorter_than_title cases above already exercise this for a
+# Notes/Parameters section; these add coverage for other section names.
+
+CORPUS.append((
+    "edge_110.underline_longer_than_title_warns",
+    "Summary.\n\nWarns\n--------\nSomeWarning\n"
+    "    A warning entry under an overlong underline.\n"
+))
+
+CORPUS.append((
+    "edge_110.underline_shorter_than_title_notes",
+    "Summary.\n\nNotes\n---\n"
+    "This underline is shorter than the title and is not treated as a\n"
+    "section header.\n"
 ))

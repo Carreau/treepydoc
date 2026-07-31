@@ -5,9 +5,10 @@ project(tree_sitter_numpydoc LANGUAGES C)
 # standard tree-sitter CPython binding.
 # Built against the stable ABI, so one wheel per platform covers every
 # supported Python rather than one wheel per interpreter version.
+# 3.10 is the floor because that is what numpydoc 1.10 requires.
 find_package(Python REQUIRED COMPONENTS Interpreter Development.SABIModule)
 
-python_add_library(_binding MODULE USE_SABI 3.9
+python_add_library(_binding MODULE USE_SABI 3.10
   bindings/python/tree_sitter_numpydoc/binding.c
   src/parser.c
   src/scanner.c

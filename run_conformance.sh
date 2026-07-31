@@ -1,10 +1,8 @@
 #!/bin/sh
 # Rebuild the parser, then diff treepydoc against numpydoc case by case.
 #
-# NUMPYDOC_PATH should point at a numpydoc checkout to compare against. Pin it
-# to a specific commit: treepydoc is bug-compatible with a *version* of
-# numpydoc, so comparing against a working tree that is being patched will
-# report failures that are really upstream fixes. See PLAN.md.
+# Compares against whichever numpydoc is installed; treepydoc targets >= 1.10.
+# Set NUMPYDOC_PATH to compare against a checkout instead:
 #
 #     NUMPYDOC_PATH=../numpydoc ./run_conformance.sh
 set -e

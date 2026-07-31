@@ -173,9 +173,8 @@ y : float, optional
     assert params[1].desc == ["The y value.", "Second line of description."]
 
 
-def test_parameter_discarded_field():
-    """`x : a : b` keeps `x` and `a` and discards `b`, matching numpydoc's
-    `header.strip().split(' : ')[:2]`."""
+def test_parameter_type_keeps_everything_after_the_first_separator():
+    """`header.split(' : ', maxsplit=1)`: only the first ` : ` splits."""
     doc = """\
 Summary.
 
@@ -187,14 +186,28 @@ x : a : b
     nds = treepydoc.NumpyDocString(doc)
     (param,) = nds["Parameters"]
     assert param.name == "x"
-    assert param.type == "a"
+    assert param.type == "a : b"
     assert param.desc == ["Desc of x."]
 
-    # The discarded text is still addressable in the tree, even though the
-    # Python-level API drops it.
+
+def test_dangling_separator_is_dropped_but_addressable():
+    """`header.removesuffix(" :")` on a header with no type."""
+    doc = """\
+Summary.
+
+Parameters
+----------
+formats, names, byteorder :
+    Passed through.
+"""
+    (param,) = treepydoc.NumpyDocString(doc)["Parameters"]
+    assert param.name == "formats, names, byteorder"
+    assert param.type == ""
+
+    # The colon numpydoc drops is still addressable in the tree.
     tree = treepydoc.parse(doc)
-    (discarded,) = list(find_all(tree.root_node, "discarded"))
-    assert discarded.text == b"b"
+    (dangling,) = list(find_all(tree.root_node, "dangling_separator"))
+    assert dangling.text == b" :"
 
 
 def test_typed_entry_single_element_is_type():
@@ -284,7 +297,7 @@ Summary.
 # ---------------------------------------------------------------------------
 
 
-def test_returns_and_yields_raises_value_error():
+def test_returns_and_yields_is_allowed():
     doc = """\
 Test.
 
@@ -298,8 +311,9 @@ Yields
 a : int
     b
 """
-    with pytest.raises(ValueError, match="both a Returns and Yields"):
-        treepydoc.NumpyDocString(doc)
+    # numpydoc 1.10 dropped this check; both sections now parse.
+    nds = treepydoc.NumpyDocString(doc)
+    assert nds["Returns"] and nds["Yields"]
 
 
 def test_receives_without_yields_raises_value_error():
@@ -339,7 +353,9 @@ See Also
 --------
 :func:`~foo`
 """
-    with pytest.raises(treepydoc.ParseError):
+    # 1.10 reports this through `_error_location`, so it is a ValueError now;
+    # `ParseError` still exists but nothing raises it.
+    with pytest.raises(ValueError, match="Error parsing See Also entry"):
         treepydoc.NumpyDocString(doc)
 
 
@@ -579,8 +595,8 @@ def test_str_round_trip_matches_numpydoc():
 
         try:
             expected = dict(docscrape.NumpyDocString(rendered))
-        except docscrape.ParseError as exc:
-            with pytest.raises(treepydoc.ParseError) as caught:
+        except ValueError as exc:
+            with pytest.raises(ValueError) as caught:
                 treepydoc.NumpyDocString(rendered)
             assert caught.value.args[0] == exc.args[0]
         else:

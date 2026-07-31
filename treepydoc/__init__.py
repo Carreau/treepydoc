@@ -18,6 +18,7 @@ import textwrap
 import warnings
 from collections import namedtuple
 from collections.abc import Callable, Mapping
+from functools import cached_property
 
 import tree_sitter_numpydoc
 
@@ -35,8 +36,6 @@ __all__ = [
     "language",
     "dedent_lines",
     "strip_blank_lines",
-    "indent",
-    "header",
 ]
 
 Parameter = namedtuple("Parameter", ["name", "type", "desc"])
@@ -90,18 +89,6 @@ def strip_blank_lines(lines):
 def dedent_lines(lines):
     """Deindent a list of lines maximally."""
     return textwrap.dedent("\n".join(lines)).split("\n")
-
-
-def indent(str, indent=4):
-    indent_str = " " * indent
-    if str is None:
-        return indent_str
-    lines = str.split("\n")
-    return "\n".join(indent_str + line for line in lines)
-
-
-def header(text, style="-"):
-    return text + "\n" + style * len(text) + "\n"
 
 
 def _collapse_blanks(lines):
@@ -249,17 +236,17 @@ class NumpyDocString(Mapping):
         "Summary": [""],
         "Extended Summary": [],
         "Parameters": [],
+        "Attributes": [],
+        "Methods": [],
         "Returns": [],
         "Yields": [],
         "Receives": [],
+        "Other Parameters": [],
         "Raises": [],
         "Warns": [],
-        "Other Parameters": [],
-        "Attributes": [],
-        "Methods": [],
+        "Warnings": [],
         "See Also": [],
         "Notes": [],
-        "Warnings": [],
         "References": "",
         "Examples": "",
         "index": {},
@@ -345,9 +332,7 @@ class NumpyDocString(Mapping):
         # makes numpydoc raise ParseError. Here it leaves an ERROR node, which
         # may swallow the whole section, so the offending line is located
         # explicitly rather than read off the error's position.
-        error = self._see_also_parse_error()
-        if error is not None:
-            raise error
+        self._check_see_also()
 
         sections = [
             c for c in root.named_children
@@ -372,7 +357,10 @@ class NumpyDocString(Mapping):
 
             name = self._section_name(node)
             if self.get(name):
-                self._error_location("The section %s appears twice" % name)
+                self._error_location(
+                    "The section %s appears twice in  %s"
+                    % (name, "\n".join(self._src.lines))
+                )
 
             if node.type == "parameters_section":
                 self[name] = self._parse_param_list(node, single_element_is_type=False)
@@ -383,29 +371,37 @@ class NumpyDocString(Mapping):
             else:
                 self[name] = self._section_body(node)
 
-    def _see_also_parse_error(self):
-        """The `ParseError` numpydoc would raise for a See Also body, or None.
+    def _check_see_also(self) -> None:
+        """Raise what `_parse_see_also` would raise, if anything.
 
-        `_parse_see_also` rejects a line that is neither indented (a
-        continuation, which never fails) nor matched by its item regex. Rather
-        than reimplement that regex, each suspect line is probed through the
-        grammar itself, which is where the rule already lives.
+        1.10 reports a bad entry through `_error_location` -- a `ValueError`
+        carrying the offending line -- rather than the old `ParseError`. The
+        line it names comes from `dedent_lines(content)`, so the section body
+        has to be dedented before any of it is inspected.
+
+        Rather than reimplement the item regex, each candidate line is probed
+        through the grammar itself, which is where the rule already lives.
         """
         if not self._tree.root_node.has_error:
-            return None
+            return
 
         for title_row in self._see_also_title_rows():
-            for row in range(title_row + 2, len(self._src.lines)):
-                line = self._src.lines[row]
+            for line in self._see_also_body(title_row):
                 if not line.strip():
                     continue
-                if line.startswith(" ") or line.startswith("\t"):
+                if line.startswith(" "):
                     continue  # a continuation; numpydoc never fails on one
-                if self._is_section_header(row):
-                    break  # the body ended before anything went wrong
                 if not _see_also_item_parses(line):
-                    return ParseError("%s is not a item name" % line)
-        return None
+                    self._error_location(f"Error parsing See Also entry {line!r}")
+
+    def _see_also_body(self, title_row: int) -> list[str]:
+        """The lines `_parse_see_also` would see, dedented as it dedents them."""
+        rows = []
+        for row in range(title_row + 2, len(self._src.lines)):
+            if self._is_section_header(row):
+                break
+            rows.append(self._src.lines[row])
+        return dedent_lines(strip_blank_lines(_collapse_blanks(rows)))
 
     def _see_also_title_rows(self) -> list[int]:
         """Rows holding a See Also title, whether or not the section parsed."""
@@ -449,11 +445,9 @@ class NumpyDocString(Mapping):
             if node.type != "index_section":
                 names.add(self._section_name(node))
 
-        has_returns = "Returns" in names
-        has_yields = "Yields" in names
-        if has_returns and has_yields:
-            raise ValueError("Docstring contains both a Returns and Yields section.")
-        if not has_yields and "Receives" in names:
+        # numpydoc 1.10 no longer objects to Returns and Yields together; only
+        # Receives without Yields is still an error.
+        if "Yields" not in names and "Receives" in names:
             raise ValueError("Docstring contains a Receives section but not Yields.")
 
     # ---------------------------------------------------------------- preamble
@@ -488,8 +482,15 @@ class NumpyDocString(Mapping):
 
     def _parse_param_list(self, node, single_element_is_type: bool):
         entry_type = "typed_entry" if single_element_is_type else "parameter"
+        entries = _children(node, entry_type)
+        if not entries:
+            # `_parse_param_list` opens with `dedent_lines(content)`, and
+            # `dedent_lines([])` returns `['']` rather than `[]`. The reader
+            # then sees one empty line and produces one empty entry.
+            return [Parameter("", "", [])]
+
         params = []
-        for entry in _children(node, entry_type):
+        for entry in entries:
             header = entry.named_child(0)
             name = self._src.node_text(header.child_by_field_name("name"))
             type_ = self._src.node_text(header.child_by_field_name("type"))
@@ -508,13 +509,6 @@ class NumpyDocString(Mapping):
     # ---------------------------------------------------------------- see also
 
     def _parse_see_also(self, node):
-        # numpydoc raises when a line is neither a continuation nor a parsable
-        # item; the grammar records that as an ERROR node instead.
-        for child in node.children:
-            if child.type == "ERROR" or child.is_missing:
-                line = self._src.lines[child.start_point[0]]
-                raise ParseError("%s is not a item name" % line)
-
         items = []
         for entry in _children(node, "see_also_entry"):
             funcs = []
@@ -576,19 +570,30 @@ class NumpyDocString(Mapping):
 
     # ------------------------------------------------------------------ errors
 
-    def _error_location(self, msg, error=True):
-        if hasattr(self, "_obj"):
-            import inspect
+    @property
+    def _obj(self):
+        if hasattr(self, "_cls"):
+            return self._cls
+        elif hasattr(self, "_f"):
+            return self._f
+        return None
 
+    def _error_location(self, msg, error=True):
+        if self._obj is not None:
             try:
                 filename = inspect.getsourcefile(self._obj)
             except TypeError:
                 filename = None
-            msg = msg + (" in the docstring of %s in %s." % (self._obj, filename))
+            name = getattr(self._obj, "__name__", None)
+            if name is None:
+                name = getattr(getattr(self._obj, "__class__", None), "__name__", None)
+            if name is not None:
+                msg += f" in the docstring of {name}"
+            msg += f" in {filename}." if filename else ""
         if error:
             raise ValueError(msg)
         else:
-            warnings.warn(msg)
+            warnings.warn(msg, stacklevel=3)
 
     # ------------------------------------------------- string conversion
 
@@ -704,8 +709,10 @@ class NumpyDocString(Mapping):
         out += self._str_signature()
         out += self._str_summary()
         out += self._str_extended_summary()
+        out += self._str_param_list("Parameters")
+        for param_list in ("Attributes", "Methods"):
+            out += self._str_param_list(param_list)
         for param_list in (
-            "Parameters",
             "Returns",
             "Yields",
             "Receives",
@@ -718,8 +725,6 @@ class NumpyDocString(Mapping):
         out += self._str_see_also(func_role)
         for s in ("Notes", "References", "Examples"):
             out += self._str_section(s)
-        for param_list in ("Attributes", "Methods"):
-            out += self._str_param_list(param_list)
         out += self._str_index()
         return "\n".join(out)
 
@@ -842,12 +847,22 @@ class ClassDoc(NumpyDocString):
                 not name.startswith("_")
                 and (
                     func is None
-                    or isinstance(func, property)
+                    or isinstance(func, property | cached_property)
                     or inspect.isdatadescriptor(func)
                 )
+                and not self._should_skip_member(name, self._cls)
                 and self._is_show_member(name)
             )
         ]
+
+    @staticmethod
+    def _should_skip_member(name, klass):
+        return (
+            issubclass(klass, tuple)
+            and hasattr(klass, "_asdict")
+            and hasattr(klass, "_fields")
+            and name in klass._fields
+        )
 
     def _is_show_member(self, name):
         if self.show_inherited_members:
@@ -862,15 +877,22 @@ class ObjDoc(NumpyDocString):
 
     def __init__(self, obj, doc=None, config=None):
         self._f = obj
-        NumpyDocString.__init__(self, doc or "", config=config)
+        NumpyDocString.__init__(self, doc, config=config)
 
 
-def get_doc_object(obj, what=None, doc=None, config=None):
-    """Dispatch to the right documenter, the way numpydoc's Sphinx layer does.
+def get_doc_object(
+    obj,
+    what=None,
+    doc=None,
+    config=None,
+    class_doc=ClassDoc,
+    func_doc=FunctionDoc,
+    obj_doc=ObjDoc,
+):
+    """Dispatch to the right documenter.
 
-    This is the plain-text counterpart of
-    `numpydoc.docscrape_sphinx.get_doc_object`; see `treepydoc.sphinx` for the
-    Sphinx-rendering one.
+    Parameterised by the three documenter classes so `treepydoc.sphinx` can
+    reuse the dispatch with its own, exactly as numpydoc does.
     """
     if what is None:
         if inspect.isclass(obj):
@@ -882,13 +904,14 @@ def get_doc_object(obj, what=None, doc=None, config=None):
         else:
             what = "object"
 
-    config = {} if config is None else config
+    if config is None:
+        config = {}
 
     if what == "class":
-        return ClassDoc(obj, func_doc=FunctionDoc, doc=doc, config=config)
+        return class_doc(obj, func_doc=func_doc, doc=doc, config=config)
     elif what in ("function", "method"):
-        return FunctionDoc(obj, doc=doc, config=config)
+        return func_doc(obj, doc=doc, config=config)
     else:
         if doc is None:
             doc = pydoc.getdoc(obj)
-        return ObjDoc(obj, doc, config=config)
+        return obj_doc(obj, doc, config=config)

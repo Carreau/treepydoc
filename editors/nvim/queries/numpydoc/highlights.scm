@@ -41,7 +41,7 @@
 
 ; `x : int : leftover` -- `leftover` is silently dropped by numpydoc; flag it
 ; visually as suspect content rather than an ordinary type/description.
-(entry_header discarded: (discarded) @error)
+(entry_header (dangling_separator) @error)
 
 
 ; ---------------------------------------------------------------------------
@@ -51,7 +51,7 @@
 (typed_entry_header name: (name) @variable.parameter)
 (typed_entry_header type: (type) @type)
 (typed_entry_header (separator) @punctuation.delimiter)
-(typed_entry_header discarded: (discarded) @error)
+(typed_entry_header (dangling_separator) @error)
 
 
 ; ---------------------------------------------------------------------------

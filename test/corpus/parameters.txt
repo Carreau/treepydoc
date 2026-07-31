@@ -64,7 +64,7 @@ int
         (line)))))
 
 ================================================================================
-x : a : b keeps name and type, discards the third field
+x : a : b splits once, so the type keeps the rest
 ================================================================================
 
 Parameters
@@ -82,9 +82,7 @@ x : a : b
       (entry_header
         (name)
         (separator)
-        (type)
-        (separator)
-        (discarded))
+        (type))
       (description
         (line)))))
 
@@ -193,7 +191,8 @@ x :
     (section_underline)
     (parameter
       (entry_header
-        (name))
+        (name)
+        (dangling_separator))
       (description
         (line)))))
 
@@ -214,7 +213,8 @@ foo :
     (section_underline)
     (parameter
       (entry_header
-        (name))
+        (name)
+        (dangling_separator))
       (description
         (line)))))
 

@@ -31,23 +31,35 @@ _SWAPPED = (
     "NumpyDocString",
     "FunctionDoc",
     "ClassDoc",
+    "ObjDoc",
+    # `get_doc_object` binds `class_doc`/`func_doc`/`obj_doc` as *default
+    # arguments*, evaluated when the module was imported. Rebinding the module
+    # globals therefore does not reach them, and it would go on building
+    # numpydoc's documenters around treepydoc's parser -- a half-swapped object
+    # whose `_parse` and `__init__` come from different implementations.
+    "get_doc_object",
     "ParseError",
     "Parameter",
     "strip_blank_lines",
     "dedent_lines",
-    "indent",
-    "header",
 )
 
 
 def install() -> list[str]:
     """Rebind numpydoc's parser names to treepydoc's. Returns what changed."""
-    if "numpydoc.docscrape_sphinx" in sys.modules:
-        raise RuntimeError(
-            "numpydoc.docscrape_sphinx was imported before the swap; its "
-            "`class SphinxDocString(NumpyDocString)` has already bound the "
-            "original parser"
-        )
+    for module, why in (
+        (
+            "numpydoc.docscrape_sphinx",
+            "its `class SphinxDocString(NumpyDocString)` has already bound the "
+            "original parser",
+        ),
+        (
+            "numpydoc.validate",
+            "it has already done `from .docscrape import get_doc_object`",
+        ),
+    ):
+        if module in sys.modules:
+            raise RuntimeError(f"{module} was imported before the swap; {why}")
 
     import numpydoc.docscrape as docscrape
 
