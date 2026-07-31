@@ -34,6 +34,19 @@ def find_tinybuild() -> Path:
     return candidate
 
 
+# tinybuild points intersphinx at docs.python.org. Whether that inventory
+# download succeeds decides if a cross-reference renders as a link or as an
+# unresolved `xref` span -- so with it enabled the comparison depends on the
+# network rather than on the parser, and two runs of the *same* parser can
+# disagree. Turning the mapping off makes the build hermetic.
+HERMETIC = """
+
+# Appended by treepydoc's comparison harness: keep the build off the network so
+# the only thing that can differ between the two runs is the parser.
+intersphinx_mapping = {}
+"""
+
+
 def prepare(source: Path, dest: Path, extension: str) -> Path:
     shutil.copytree(source, dest)
     shutil.rmtree(dest / "_build", ignore_errors=True)
@@ -43,7 +56,7 @@ def prepare(source: Path, dest: Path, extension: str) -> Path:
         text = text.replace("    'numpydoc',", f"    '{extension}',")
         if extension not in text:
             raise SystemExit("could not swap the extension in conf.py")
-    conf.write_text(text)
+    conf.write_text(text + HERMETIC)
     return dest
 
 

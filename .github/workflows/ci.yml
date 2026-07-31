@@ -6,6 +6,10 @@ on:
   pull_request:
   workflow_dispatch:
 
+# Every job only reads the repository; nothing publishes, comments or tags.
+permissions:
+  contents: read
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -22,8 +26,10 @@ jobs:
     name: grammar (generate + corpus)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: "22"
       - run: npm install
@@ -59,53 +65,60 @@ jobs:
           - os: macos-13
             python: "3.9"
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: ${{ matrix.python }}
 
       - run: python -m pip install --upgrade pip
-      - run: python -m pip install .[test]
+      - run: python -m pip install '.[test]'
 
       # Run from elsewhere so the repo directory does not shadow the installed
       # package. Without numpydoc the differential tests skip themselves; what
       # this job proves is that the extension builds and imports everywhere.
       - name: unit tests (no numpydoc)
         working-directory: ${{ runner.temp }}
-        run: python -m pytest ${{ github.workspace }}/tests -q
+        shell: bash
+        run: python -m pytest "$GITHUB_WORKSPACE/tests" -q
 
       - name: smoke test the installed package
         working-directory: ${{ runner.temp }}
-        run: python ${{ github.workspace }}/tools/smoke_test.py
+        shell: bash
+        run: python "$GITHUB_WORKSPACE/tools/smoke_test.py"
 
   conformance:
     name: conformance vs numpydoc
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.11"
 
       - name: check out the pinned numpydoc
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: ${{ env.NUMPYDOC_REPO }}
           ref: ${{ env.NUMPYDOC_REF }}
           path: .numpydoc
+          persist-credentials: false
 
       - run: python -m pip install --upgrade pip
-      - run: python -m pip install .[test,sphinx]
+      - run: python -m pip install '.[test,sphinx]'
 
       - name: unit tests, including the differential cases
         working-directory: ${{ runner.temp }}
-        run: python -m pytest ${{ github.workspace }}/tests -q
+        run: python -m pytest "$GITHUB_WORKSPACE/tests" -q
         env:
           PYTHONPATH: ${{ github.workspace }}/.numpydoc
 
       - name: curated corpus, key by key
         working-directory: ${{ runner.temp }}
-        run: python ${{ github.workspace }}/tools/conformance.py
+        run: python "$GITHUB_WORKSPACE/tools/conformance.py"
         env:
           PYTHONPATH: ${{ github.workspace }}/.numpydoc
 
@@ -119,7 +132,7 @@ jobs:
 
       - name: end-to-end Sphinx build, both parsers
         working-directory: ${{ runner.temp }}
-        run: python ${{ github.workspace }}/tools/sphinx_compare.py
+        run: python "$GITHUB_WORKSPACE/tools/sphinx_compare.py"
         env:
           NUMPYDOC_PATH: ${{ github.workspace }}/.numpydoc
 
@@ -127,58 +140,119 @@ jobs:
     name: real-world sweep + fuzz
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.11"
 
       - name: check out the pinned numpydoc
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: ${{ env.NUMPYDOC_REPO }}
           ref: ${{ env.NUMPYDOC_REF }}
           path: .numpydoc
+          persist-credentials: false
 
       - run: python -m pip install --upgrade pip
       - run: python -m pip install . numpy scipy pandas
 
       - name: every public docstring in numpy, scipy and pandas
         working-directory: ${{ runner.temp }}
-        run: python ${{ github.workspace }}/tools/sweep.py
+        run: python "$GITHUB_WORKSPACE/tools/sweep.py"
         env:
           PYTHONPATH: ${{ github.workspace }}/.numpydoc
 
       - name: mutation fuzz
         working-directory: ${{ runner.temp }}
-        run: python ${{ github.workspace }}/tools/fuzz.py --seeds 300 --mutants 10
+        run: python "$GITHUB_WORKSPACE/tools/fuzz.py" --seeds 300 --mutants 10
         env:
           PYTHONPATH: ${{ github.workspace }}/.numpydoc
 
   lint:
-    name: lint
+    name: lint (python + C)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.11"
 
-      - run: python -m pip install ruff
+      - run: python -m pip install --upgrade pip
+      # Versions are pinned in pyproject.toml so a new linter release cannot
+      # turn CI red on an unchanged tree.
+      - run: python -m pip install --group lint
+
       - run: ruff check .
       # No `ruff format` check on purpose: `tools/corpus.py` holds docstring
       # fixtures copied verbatim out of numpydoc's test suite, and reformatting
       # is not worth the risk of perturbing the data under test.
 
-      # Only the hand-written scanner; src/parser.c is generated.
-      - name: scanner builds clean at -Wall -Wextra
+      - name: spelling
+        run: codespell
+
+      - run: shellcheck run_conformance.sh
+
+      - name: install clang tooling
+        run: sudo apt-get update && sudo apt-get install -y clang-format clang-tidy
+
+      # Only the hand-written scanner; src/parser.c is generated, and is
+      # excluded via .clang-format-ignore.
+      - name: scanner formatting
+        run: clang-format --dry-run --Werror src/scanner.c
+
+      - name: scanner static analysis
+        run: clang-tidy --warnings-as-errors='*' src/scanner.c -- -std=c11 -Isrc
+
+      - name: scanner warnings
         run: gcc -c -std=c11 -Wall -Wextra -Werror -Isrc -o /dev/null src/scanner.c
+
+  workflows:
+    name: lint (workflows)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.11"
+
+      - run: python -m pip install --upgrade pip
+      - run: python -m pip install --group lint
+
+      # Fetched rather than run as an action, so the download is checksummed
+      # instead of trusted.
+      - name: install actionlint
+        env:
+          ACTIONLINT_VERSION: 1.7.7
+          ACTIONLINT_SHA256: 023070a287cd8cccd71515fedc843f1985bf96c436b7effaecce67290e7e0757
+        run: |
+          url="https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
+          curl -fsSL -o actionlint.tar.gz "$url"
+          echo "${ACTIONLINT_SHA256}  actionlint.tar.gz" | sha256sum --check --strict
+          tar xzf actionlint.tar.gz actionlint
+
+      # actionlint shells out to shellcheck for `run:` blocks, which is how the
+      # unquoted `pip install .[test]` glob was caught.
+      - name: actionlint
+        run: ./actionlint -color
+
+      # Supply-chain and permissions audit of the workflows themselves.
+      - name: zizmor
+        run: zizmor --persona=pedantic .github/workflows/
 
   package:
     name: sdist + abi3 wheel
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.9"
 
@@ -188,17 +262,17 @@ jobs:
       - name: the wheel installs and works from a clean interpreter
         working-directory: ${{ runner.temp }}
         run: |
-          python -m pip install "${{ github.workspace }}"/dist/*.whl
-          python "${{ github.workspace }}/tools/smoke_test.py"
+          python -m pip install "$GITHUB_WORKSPACE"/dist/*.whl
+          python "$GITHUB_WORKSPACE/tools/smoke_test.py"
 
       - name: and so does the sdist
         working-directory: ${{ runner.temp }}
         run: |
           python -m pip install --force-reinstall --no-binary :all: \
-            "${{ github.workspace }}"/dist/*.tar.gz
-          python "${{ github.workspace }}/tools/smoke_test.py"
+            "$GITHUB_WORKSPACE"/dist/*.tar.gz
+          python "$GITHUB_WORKSPACE/tools/smoke_test.py"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: dist
           path: dist/

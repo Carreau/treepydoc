@@ -1,0 +1,5 @@
+# The scanner was written in this style already; adopting it makes the
+# formatting checkable rather than a matter of taste. src/parser.c is generated
+# and is excluded in .clang-format-ignore.
+BasedOnStyle: Google
+ColumnLimit: 80

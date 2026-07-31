@@ -16,12 +16,12 @@
 // Portions of this approach are adapted from tree-sitter-rst,
 // Copyright (c) 2020 Santos Gallegos, MIT License.
 
-#include "tree_sitter/alloc.h"
-#include "tree_sitter/parser.h"
-
 #include <stdbool.h>
 #include <stddef.h>
 #include <string.h>
+
+#include "tree_sitter/alloc.h"
+#include "tree_sitter/parser.h"
 
 enum TokenType {
   NEWLINE,
@@ -93,7 +93,11 @@ static inline bool is_name_char(int32_t c) {
          (c >= '0' && c <= '9') || c == '_' || c == '.' || c == '-';
 }
 
-static inline char lower(char c) { return (c >= 'A' && c <= 'Z') ? c + 32 : c; }
+// The conditional operator promotes both arms to `int`, so the narrowing is
+// done once, explicitly, on the result.
+static inline char lower(char c) {
+  return (char)((c >= 'A' && c <= 'Z') ? c + 32 : c);
+}
 
 // ------------------------------------------------------------- line buffering
 
@@ -118,7 +122,7 @@ static void line_push(Line *line, int32_t c) {
   }
   // Non-ASCII code points fold to one placeholder byte so that `len` counts
   // code points, matching Python's `len()`. Only ASCII is compared byte-wise.
-  line->data[line->len++] = (c >= 0 && c < 128) ? (char)c : (char)NON_ASCII;
+  line->data[line->len++] = (char)((c >= 0 && c < 128) ? c : NON_ASCII);
   line->data[line->len] = '\0';
 }
 
@@ -168,8 +172,8 @@ static bool line_is_blank(const Line *line) {
 
 // --------------------------------------------------------- numpydoc predicates
 
-// `_parse_summary`'s `re.compile(r'^([\w., ]+=)?\s*[\w\.]+\(.*\)$')`, applied to
-// `" ".join(l.strip() for l in paragraph).strip()`.
+// `_parse_summary`'s `re.compile(r'^([\w., ]+=)?\s*[\w\.]+\(.*\)$')`, run
+// over `" ".join(l.strip() for l in paragraph).strip()`.
 //
 // The optional prefix never backtracks: `[\w., ]` cannot match `=`, so it
 // matches iff the maximal run of `[\w., ]` is immediately followed by `=`.

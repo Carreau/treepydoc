@@ -127,7 +127,10 @@ could not.
 
 Done: `pyproject.toml` + scikit-build-core over CMake, no `setup.py`, abi3
 wheels, and GitHub Actions running every suite (`grammar`, `build` across three
-OSes, `conformance`, `differential`, `lint`, `package`).
+OSes, `conformance`, `differential`, `lint`, `workflows`, `package`). Linting
+covers Python (ruff), prose (codespell), shell (shellcheck), the scanner
+(clang-format, clang-tidy, `gcc -Werror`) and the workflows themselves
+(actionlint, zizmor at `--persona=pedantic`), with every linter version pinned.
 
 Left:
 

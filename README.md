@@ -134,6 +134,7 @@ tools/numpydoc_swap.py  pytest plugin that swaps the parser in
 tools/run_numpydoc_suite.py  runs numpydoc's tests both ways and diffs
 tools/smoke_test.py     post-install check, imports nothing from the tree
 CMakeLists.txt          builds the extension; no setup.py
+.github/workflows/      CI: grammar, build, conformance, differential, lint, package
 treepydoc/sphinx.py     the Sphinx extension
 ```
 
@@ -155,6 +156,26 @@ python3 -m build            # sdist + abi3 wheel into dist/
 `src/parser.c` is committed, and CI regenerates it and fails on any diff — so
 the CLI version is pinned exactly, since a different one can emit a different
 parse table for the same grammar.
+
+## Linting
+
+Everything is checked, and the linter versions are pinned in `pyproject.toml`
+under `[dependency-groups] lint` so a new release cannot turn CI red on an
+unchanged tree:
+
+| Tool | What it covers |
+| --- | --- |
+| `ruff` | Python |
+| `codespell` | prose in every file |
+| `shellcheck` | `run_conformance.sh` |
+| `clang-format` | `src/scanner.c` (Google style; `src/parser.c` is generated and exempt) |
+| `clang-tidy` | the scanner, `--warnings-as-errors='*'` |
+| `gcc -Wall -Wextra -Werror` | the scanner again, with a second front end |
+| `actionlint` | the workflows, including shellcheck over every `run:` block |
+| `zizmor` | the workflows' supply chain and permissions, at `--persona=pedantic` |
+
+Actions are pinned to commit SHAs, checkouts do not persist credentials, and the
+workflow token is `contents: read`.
 
 Running the differential tests needs `numpydoc` importable:
 

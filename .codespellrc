@@ -1,0 +1,7 @@
+[codespell]
+# Generated parser tables, and the docstring fixtures copied verbatim out of
+# numpydoc's test suite -- neither is ours to correct.
+skip = ./.git,./build,./dist,./node_modules,./src/parser.c,./src/grammar.json,./src/node-types.json,./tools/corpus.py
+# `Retruns` and `Parmeters` appear on purpose: they are the examples of the
+# mistyped section names that numpydoc silently drops.
+ignore-words-list = retruns,parmeters

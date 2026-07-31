@@ -26,6 +26,16 @@ dependencies = ["tree_sitter>=0.23"]
 test = ["pytest"]
 sphinx = ["sphinx", "jinja2"]
 
+# Dev tooling, pinned so a new linter release cannot turn CI red on an
+# unchanged tree. Installed with `pip install --group lint`.
+[dependency-groups]
+lint = [
+  "ruff==0.16.1",
+  "codespell==2.4.3",
+  "zizmor==1.28.0",
+  "shellcheck-py==0.11.0.1",
+]
+
 [project.urls]
 Homepage = "https://github.com/carreau/treepydoc"
 
