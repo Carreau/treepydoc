@@ -47,7 +47,36 @@ mkdir -p ~/.local/share/nvim/site/parser
 mv numpydoc.so ~/.local/share/nvim/site/parser/
 ```
 
-### 2. Install the queries
+### 2. Build the parsers this one leans on
+
+Two more, because a docstring is three languages nested: `python` hosts the
+docstring, `numpydoc` parses it, and `rst` parses the prose inside it.
+
+`python` is packaged, so it need not be built. The commands below are
+Homebrew's; another distribution's package lands in a different prefix, and
+`cc` over a clone works everywhere as a fallback. Homebrew ships the grammar
+as a *linkable* library rather than a loadable parser, and Neovim looks for a
+file named exactly `python.so`, so bridge the two with a symlink:
+
+```sh
+brew install tree-sitter-python
+ln -sf "$(brew --prefix)/opt/tree-sitter-python/lib/libtree-sitter-python.dylib" \
+       ~/.local/share/nvim/site/parser/python.so
+```
+
+`rst` is not packaged; build it the same way as this one:
+
+```sh
+git clone https://github.com/stsewd/tree-sitter-rst
+cd tree-sitter-rst
+cc -o ~/.local/share/nvim/site/parser/rst.so \
+   -shared -Isrc -fPIC src/parser.c src/scanner.c -Os
+```
+
+Neither is required. A missing parser is skipped rather than raised, so
+without `rst` the prose stays plain text and everything else still highlights.
+
+### 3. Install the queries
 
 ```sh
 mkdir -p ~/.config/nvim/queries/numpydoc
@@ -59,11 +88,56 @@ mkdir -p ~/.config/nvim/after/queries/python
 cp editors/nvim/queries/python/injections.scm ~/.config/nvim/after/queries/python/
 ```
 
-### 3. Check it
+`python` and `rst` need highlight queries of their own, and neither upstream
+repository ships one for Neovim. Homebrew's `tree-sitter-python` includes a
+usable `highlights.scm`; for `rst`, nvim-treesitter's is the maintained copy:
+
+```sh
+mkdir -p ~/.config/nvim/queries/python ~/.config/nvim/queries/rst
+cp "$(brew --prefix)/opt/tree-sitter-python/share/tree-sitter/queries/python/highlights.scm" \
+   ~/.config/nvim/queries/python/
+curl -o ~/.config/nvim/queries/rst/highlights.scm \
+  https://raw.githubusercontent.com/nvim-treesitter/nvim-treesitter/master/queries/rst/highlights.scm
+```
+
+Installing a parser without its highlight query is the quiet failure mode
+here: the layer parses, contributes no captures, and looks like the injection
+never ran.
+
+### 4. Turn it on
+
+Neovim 0.12 has the tree-sitter runtime built in, so nvim-treesitter is
+optional — but nothing starts the highlighter for you:
+
+```lua
+vim.api.nvim_create_autocmd('FileType', {
+  pattern = 'python',
+  callback = function() pcall(vim.treesitter.start) end,
+})
+```
+
+### 5. Check it
 
 Open a Python file with a numpydoc docstring and run `:InspectTree`. The
-docstring should appear as an injected `numpydoc` tree. `:Inspect` with the
-cursor on a section title should report `@markup.heading`.
+docstring should appear as an injected `numpydoc` tree, with `rst` trees
+nested inside its prose. `:Inspect` with the cursor on a section title should
+report `@markup.heading`.
+
+To check all three layers at once without reading colours off a screen —
+`children()` only returns direct children, so the nested `rst` layer needs a
+walk rather than a single call:
+
+```vim
+:lua local p=vim.treesitter.get_parser() p:parse(true) local s={} p:for_each_tree(function(_,t) s[t:lang()]=true end) print(vim.inspect(vim.tbl_keys(s)))
+```
+
+The `parse(true)` is not optional: injected layers do not exist until
+something has parsed the buffer, and without it the table comes back empty
+even when the setup is perfect.
+
+`{ "python", "numpydoc", "rst" }` means the whole chain is live. If `rst` is
+listed but nothing inside it is coloured, the missing piece is the `rst`
+highlight query, not the parser.
 
 ## How the injection works
 
@@ -158,6 +232,15 @@ Five regions are handed over:
 | `description` | a parameter/return description is free-form RST |
 | `see_also_description`, `see_also_continuation` | end up in an RST definition list |
 | `section_body` of a `generic_section` | `Notes`, `Examples`, `References`, and anything unrecognised |
+
+Every one of those patterns sets `injection.include-children`, and it is
+load-bearing. These nodes are built out of `line` children, and an editor
+injecting a captured node hands over its *children's* ranges: one region per
+line, each starting at that line's first non-blank column. rst is
+block-structured and makes nothing of a run of mid-line fragments — the child
+tree comes back with zero named children and not one capture, which looks
+exactly like a missing parser. With the directive the node crosses over as a
+single contiguous region and the block structure survives.
 
 Two nodes are deliberately **not** injected:
 
