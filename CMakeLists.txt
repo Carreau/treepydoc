@@ -5,7 +5,9 @@ project(tree_sitter_numpydoc LANGUAGES C)
 # standard tree-sitter CPython binding.
 # Built against the stable ABI, so one wheel per platform covers every
 # supported Python rather than one wheel per interpreter version.
-# 3.10 is the floor because that is what numpydoc 1.10 requires.
+# 3.12 is the floor: numpydoc 1.10 itself only needs 3.10, but nothing here
+# has a reason to carry the older interpreters, and a higher abi3 floor means
+# a smaller wheel matrix and no version-conditional code.
 #
 # scikit-build-core sets `SKBUILD_SABI_COMPONENT` to `Development.SABIModule`
 # when `wheel.py-api` asks for a stable-ABI wheel, and leaves it empty
@@ -17,7 +19,7 @@ find_package(Python REQUIRED
   COMPONENTS Interpreter Development.Module ${SKBUILD_SABI_COMPONENT})
 
 if(SKBUILD_SABI_COMPONENT)
-  set(TREEPYDOC_SABI USE_SABI 3.10)
+  set(TREEPYDOC_SABI USE_SABI 3.12)
 endif()
 
 python_add_library(_binding MODULE ${TREEPYDOC_SABI}

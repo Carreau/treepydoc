@@ -8,7 +8,7 @@ version = "0.1.0"
 description = "A tree-sitter grammar and parser for numpydoc docstrings"
 readme = "README.md"
 license = { file = "LICENSE" }
-requires-python = ">=3.10"
+requires-python = ">=3.12"
 keywords = ["tree-sitter", "numpydoc", "docstring", "parser", "sphinx"]
 classifiers = [
   "Development Status :: 3 - Alpha",
@@ -16,6 +16,9 @@ classifiers = [
   "License :: OSI Approved :: MIT License",
   "Programming Language :: C",
   "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
   "Topic :: Software Development :: Documentation",
   "Topic :: Text Processing :: Markup :: reStructuredText",
 ]
@@ -43,7 +46,7 @@ lint = [
 Homepage = "https://github.com/carreau/treepydoc"
 
 [tool.mypy]
-python_version = "3.10"
+python_version = "3.12"
 files = ["treepydoc", "tools", "tests"]
 warn_unused_configs = true
 warn_redundant_casts = true
@@ -81,7 +84,7 @@ ignore_missing_imports = true
 [tool.scikit-build]
 minimum-version = "build-system.requires"
 build-dir = "build/{wheel_tag}"
-wheel.py-api = "cp310"
+wheel.py-api = "cp312"
 wheel.packages = ["treepydoc", "bindings/python/tree_sitter_numpydoc"]
 sdist.include = ["src/**", "grammar.js", "tree-sitter.json", "queries/*.scm"]
 

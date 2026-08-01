@@ -9,7 +9,8 @@ It is a **drop-in replacement** for `numpydoc.docscrape.NumpyDocString` — same
 keys, same values, same warnings, same exceptions — that happens to be backed by
 a syntax tree, so every piece of the result can be traced back to a byte range.
 
-Targets **numpydoc >= 1.10**. Older releases are not supported.
+Targets **numpydoc >= 1.10** on **Python >= 3.12**. Older releases of either
+are not supported.
 
 ```python
 >>> import treepydoc
@@ -249,7 +250,7 @@ treepydoc/sphinx.py     the Sphinx extension
 
 Packaging is [scikit-build-core](https://scikit-build-core.readthedocs.io) over
 CMake, declared entirely in `pyproject.toml` — there is no `setup.py`. The
-extension is built against the stable ABI, so one `cp39-abi3` wheel per platform
+extension is built against the stable ABI, so one `cp312-abi3` wheel per platform
 covers every supported Python.
 
 ```sh
