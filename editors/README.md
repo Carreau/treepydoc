@@ -7,10 +7,14 @@ project.
 ## What you get
 
 Section titles, their underlines, parameter names and types, See Also targets
-and roles, and the `.. index::` marker, each with its own capture. Plus the
-`dangling_separator` node — the ` :` that `header.removesuffix(" :")` throws
-away — which you can style as an error to see a header that declared a type and
-then did not.
+and roles, and the `.. index::` marker, each with its own capture. Plus two nodes whose
+whole reason to exist is to be complained about:
+
+- `dangling_separator` — the ` :` that `header.removesuffix(" :")` throws away,
+  so you can see a header that declared a type and then did not.
+- `section_underline_overlong` — an underline longer than its title. numpydoc
+  parses the section anyway and warns to stderr, where nobody reads it; here it
+  is styled as a warning in the buffer.
 
 ## Setup
 
@@ -117,6 +121,7 @@ From `queries/highlights.scm`:
 | --- | --- |
 | `section_name` | `@markup.heading` |
 | `section_underline` | `@punctuation.special` |
+| `section_underline_overlong` | `@punctuation.special` + `@comment.warning` |
 | `name` (parameter) | `@variable.parameter` |
 | `type` | `@type` |
 | `separator` (` : `) | `@punctuation.delimiter` |

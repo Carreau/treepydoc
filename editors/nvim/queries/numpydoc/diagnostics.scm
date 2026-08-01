@@ -34,3 +34,19 @@
 ; which is exactly where numpydoc itself raises `ParseError`.
 
 (ERROR) @diagnostic.parse_error
+
+
+; ---------------------------------------------------------------------------
+; An underline that is the wrong length
+; ---------------------------------------------------------------------------
+;
+; `_is_at_section` matches with `startswith`, so a longer-than-the-title
+; underline still opens a section and only produces a warning on stderr. The
+; node exists precisely so an editor can show it where the author is looking.
+;
+; The opposite case -- an underline *shorter* than its title -- is not
+; reachable from here, because numpydoc does not treat it as a section at all:
+; the title and its body silently join the previous section. Catching that one
+; needs a check over prose lines, not a node.
+
+(section_underline_overlong) @diagnostic.overlong_underline

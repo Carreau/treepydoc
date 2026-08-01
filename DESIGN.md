@@ -199,10 +199,20 @@ comment.
 1.10 now warns about this — `_is_at_section` reports a "potentially wrong
 underline length" for any adornment run of three or more characters whose length
 differs from the title's. It does not change what parses, so the section is
-still silently dropped; you just get told. Scanning numpy, scipy and pandas with
-an equivalent check finds two genuine cases: `scipy.stats.matrix_t_gen.logpdf`
-loses its `Examples` section and `pandas.core.groupby.Grouping` loses its
-`Attributes` section, each to an underline three characters short.
+still silently dropped; you just get told, on stderr, during a docs build.
+
+The half of that which *is* a section — the too-long underline — is a node here:
+`section_underline_overlong`, emitted under exactly numpydoc's condition, so an
+editor can mark it while the author is looking at it. Note the third bullet
+above is deliberately **not** flagged: `----------!!!!` is longer than its title
+but is not a single adornment run, so numpydoc says nothing and neither does the
+tree.
+
+The too-short half cannot be a node, because there is no section to hang it on:
+the title and its body are ordinary prose by the time the parser sees them.
+Catching that one means a check over prose lines that look like headers, which
+is `tools/warts.py`'s job rather than the grammar's. Over numpy, scipy, pandas,
+matplotlib and scikit-learn the scanner finds 13 live too-long underlines.
 
 ### 2.5 `.. index::` must be spelled exactly
 
@@ -324,8 +334,10 @@ What the tree adds:
   why `numpydoc.validate` has to re-derive line numbers heuristically.
 - **Recoverable errors.** A malformed See Also entry no longer discards the
   whole docstring; it becomes one `ERROR` node among otherwise good sections.
-- **Diagnosable warts.** The text `split(' : ')[:2]` throws away is a node
-  (`discarded`), so it can be underlined instead of vanishing.
+- **Diagnosable warts.** The ` :` that `header.removesuffix(" :")` drops is a
+  node (`dangling_separator`), and an underline numpydoc would warn about is a
+  node (`section_underline_overlong`), so both can be underlined in an editor
+  instead of vanishing into a build log.
 - **Incremental reparsing.** Editing one line reparses one line.
 - **Injection.** `queries/injections.scm` hands the prose sections to
   `tree-sitter-rst`, so `Notes` and `Examples` get real reStructuredText

@@ -59,6 +59,9 @@ module.exports = grammar({
     $._entry_second,
     $._dangling_separator,
 
+    // Zero-width, emitted just before an underline longer than its title.
+    $._overlong_underline,
+
     $._error_sentinel,
   ],
 
@@ -174,10 +177,30 @@ module.exports = grammar({
       field('name', alias($._stripped_line, $.section_name)),
       optional($._h_space),
       $._newline,
-      optional($._h_space),
-      field('underline', alias($._stripped_line, $.section_underline)),
+      $._underline,
       optional($._h_space),
       $._newline,
+    ),
+
+    // `_is_at_section` matches with `startswith`, so an underline longer than
+    // its title is still a section -- numpydoc only warns. The warning goes to
+    // stderr during a docs build and nowhere else, so the tree names the case
+    // instead: a `section_underline_overlong` is exactly the underline
+    // numpydoc would complain about, and an editor can style it as a warning
+    // while `section_underline` stays what it always was.
+    //
+    // The scanner decides, because the length to compare against is on the
+    // previous line and the lexer cannot look back.
+    _underline: $ => choice(
+      seq(
+        $._overlong_underline,
+        optional($._h_space),
+        field('underline', alias($._stripped_line, $.section_underline_overlong)),
+      ),
+      seq(
+        optional($._h_space),
+        field('underline', alias($._stripped_line, $.section_underline)),
+      ),
     ),
 
     section_body: $ => repeat1(choice($._any_line, $._blank_line)),

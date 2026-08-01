@@ -17,6 +17,13 @@
 (section_name) @markup.heading
 (section_underline) @punctuation.special
 
+; An underline longer than its title. numpydoc still reads the section, and
+; warns to stderr -- which nobody sees outside a docs build. Style it as a
+; warning: it is still the underline, so it keeps the base capture, and the
+; later capture wins where a theme defines both.
+(section_underline_overlong) @punctuation.special
+(section_underline_overlong) @comment.warning
+
 ; The `.. index::` marker line is directive-shaped, like an RST directive.
 (index_marker) @comment
 (index_field_line) @string.special

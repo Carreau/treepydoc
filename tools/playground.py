@@ -35,8 +35,10 @@ WASM = REPO / "tree-sitter-numpydoc.wasm"
 # Chosen to put something under most of the grammar: a signature, a summary and
 # an extended summary, both entry flavours (`Parameters` names, `Returns`
 # types), an optional-type header, a See Also with a role and with a
-# description, a `.. index::`, and -- deliberately -- the `shape :` that
-# numpydoc silently drops, which shows up as a `dangling_separator` node.
+# description, a `.. index::`, and -- deliberately -- two things numpydoc gets
+# wrong quietly: the `shape :` it drops, which shows up as a
+# `dangling_separator`, and an over-long `Raises` underline, which shows up as a
+# `section_underline_overlong`.
 SAMPLE = '''\
 multivariate_normal(mean, cov, shape=None)
 
@@ -66,9 +68,10 @@ out : ndarray
     The drawn samples, of shape (size, N).
 
 Raises
-------
+----------
 ValueError
-    If `cov` is not square.
+    If `cov` is not square. The underline above is longer than the title:
+    numpydoc parses the section and warns to stderr, and the tree marks it.
 
 See Also
 --------
@@ -92,7 +95,7 @@ Examples
 
 # Bump when SAMPLE or the seeded query changes, so an existing visitor picks the
 # new one up once. Anything else they typed survives.
-SEED_VERSION = "1"
+SEED_VERSION = "2"
 
 SEED_TEMPLATE = """\
     <script>

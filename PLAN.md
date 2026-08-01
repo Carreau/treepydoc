@@ -149,16 +149,16 @@ tree-sitter-python (so each finding has a real `file:line`), parses it with
 treepydoc, and confirms the consequence against numpydoc itself — a pattern
 match is not a finding unless `NumpyDocString` actually mis-handles it.
 
-Over **21 499 docstrings** in numpy, scipy, pandas, matplotlib and
+Over **21 111 docstrings** in numpy, scipy, pandas, matplotlib and
 scikit-learn, at their current `main`:
 
 | Finding | Count | Where |
 | --- | --- | --- |
-| `unknown-section` | 172 | 130 scipy, 31 numpy, 5 sklearn, 3 pandas, 3 matplotlib |
-| `dangling-separator` | 44 | 18 pandas, 12 scipy, 5 numpy, 5 matplotlib, 4 sklearn |
+| `unknown-section` | 171 | 130 scipy, 31 numpy, 5 sklearn, 3 pandas, 2 matplotlib |
+| `dangling-separator` | 40 | 18 pandas, 12 scipy, 5 numpy, 4 sklearn, 1 matplotlib |
 | `misspelled-section` | 33 | 13 sklearn, 11 pandas, 7 scipy, 2 numpy |
 | `unstripped-field` | 32 | 13 pandas, 10 scipy, 7 sklearn, 2 matplotlib |
-| `underline-length` | 14 | 5 scipy, 5 pandas, 4 sklearn |
+| `underline-length` | 13 | 5 scipy, 4 pandas, 4 sklearn |
 | `numpydoc-raises` | 12 | 5 numpy, 4 pandas, 3 sklearn |
 
 The 33 `misspelled-section` hits are the ones that matter, because each is a

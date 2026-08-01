@@ -112,8 +112,10 @@ The plain object API matches too, for callers that use it directly:
   byte ranges. `NumpyDocString` returns bare strings with no provenance.
 - **Recoverable errors.** A malformed See Also entry becomes one `ERROR` node
   instead of an exception that discards the whole docstring.
-- **Diagnosable warts.** The ` :` that `header.removesuffix(" :")` silently
-  drops is kept as a `dangling_separator` node, so an editor can underline it.
+- **Diagnosable warts.** Two things numpydoc only mentions on stderr, if at
+  all, are nodes: the ` :` that `header.removesuffix(" :")` silently drops
+  (`dangling_separator`), and an underline longer than its title
+  (`section_underline_overlong`). An editor can mark both.
 - **Incremental reparsing**, and **injection** of `tree-sitter-rst` into the
   prose sections so `Notes` and `Examples` highlight as real reStructuredText.
 
@@ -125,11 +127,11 @@ consequence confirmed against numpydoc itself:
 python3 tools/warts.py ~/numpy-src ~/scipy-src ~/pandas-src
 ```
 
-Across numpy, scipy, pandas, matplotlib and scikit-learn — 21 499 docstrings —
+Across numpy, scipy, pandas, matplotlib and scikit-learn — 21 111 docstrings —
 it finds 33 sections whose entire body is silently discarded because the title
 is misspelled (`Return`, `Example`, `Parameters:`), 12 docstrings numpydoc
-refuses outright, and 44 headers that declared a type and lost it. See
-[PLAN.md](PLAN.md).
+refuses outright, 40 headers that declared a type and lost it, and 13 underlines
+the wrong length. See [PLAN.md](PLAN.md).
 
 `.github/workflows/warts.yml` runs that scan against those five projects' `main`
 every Monday and files the result here, opening issues when something appears

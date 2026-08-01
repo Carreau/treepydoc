@@ -402,29 +402,8 @@
           "name": "_newline"
         },
         {
-          "type": "CHOICE",
-          "members": [
-            {
-              "type": "SYMBOL",
-              "name": "_h_space"
-            },
-            {
-              "type": "BLANK"
-            }
-          ]
-        },
-        {
-          "type": "FIELD",
-          "name": "underline",
-          "content": {
-            "type": "ALIAS",
-            "content": {
-              "type": "SYMBOL",
-              "name": "_stripped_line"
-            },
-            "named": true,
-            "value": "section_underline"
-          }
+          "type": "SYMBOL",
+          "name": "_underline"
         },
         {
           "type": "CHOICE",
@@ -441,6 +420,75 @@
         {
           "type": "SYMBOL",
           "name": "_newline"
+        }
+      ]
+    },
+    "_underline": {
+      "type": "CHOICE",
+      "members": [
+        {
+          "type": "SEQ",
+          "members": [
+            {
+              "type": "SYMBOL",
+              "name": "_overlong_underline"
+            },
+            {
+              "type": "CHOICE",
+              "members": [
+                {
+                  "type": "SYMBOL",
+                  "name": "_h_space"
+                },
+                {
+                  "type": "BLANK"
+                }
+              ]
+            },
+            {
+              "type": "FIELD",
+              "name": "underline",
+              "content": {
+                "type": "ALIAS",
+                "content": {
+                  "type": "SYMBOL",
+                  "name": "_stripped_line"
+                },
+                "named": true,
+                "value": "section_underline_overlong"
+              }
+            }
+          ]
+        },
+        {
+          "type": "SEQ",
+          "members": [
+            {
+              "type": "CHOICE",
+              "members": [
+                {
+                  "type": "SYMBOL",
+                  "name": "_h_space"
+                },
+                {
+                  "type": "BLANK"
+                }
+              ]
+            },
+            {
+              "type": "FIELD",
+              "name": "underline",
+              "content": {
+                "type": "ALIAS",
+                "content": {
+                  "type": "SYMBOL",
+                  "name": "_stripped_line"
+                },
+                "named": true,
+                "value": "section_underline"
+              }
+            }
+          ]
         }
       ]
     },
@@ -1165,6 +1213,10 @@
     {
       "type": "SYMBOL",
       "name": "_dangling_separator"
+    },
+    {
+      "type": "SYMBOL",
+      "name": "_overlong_underline"
     },
     {
       "type": "SYMBOL",

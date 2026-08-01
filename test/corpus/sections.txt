@@ -371,7 +371,7 @@ Some body text.
       (line)))
   (generic_section
     (section_name)
-    (section_underline)
+    (section_underline_overlong)
     (section_body
       (line))))
 
@@ -415,7 +415,7 @@ body
       (line)))
   (generic_section
     (section_name)
-    (section_underline)
+    (section_underline_overlong)
     (section_body
       (line))))
 
@@ -549,7 +549,7 @@ x : int
       (line)))
   (parameters_section
     (section_name)
-    (section_underline)
+    (section_underline_overlong)
     (parameter
       (entry_header
         (name)
@@ -564,6 +564,50 @@ Summary.
 
 Notes   
 -----   
+body
+
+--------------------------------------------------------------------------------
+
+(document
+  (preamble
+    (summary
+      (line)))
+  (generic_section
+    (section_name)
+    (section_underline)
+    (section_body
+      (line))))
+
+================================================================================
+An underline the same length as its title is not flagged
+================================================================================
+
+Summary.
+
+Notes
+-----
+body
+
+--------------------------------------------------------------------------------
+
+(document
+  (preamble
+    (summary
+      (line)))
+  (generic_section
+    (section_name)
+    (section_underline)
+    (section_body
+      (line))))
+
+================================================================================
+Trailing junk after enough adornment is not an overlong underline
+================================================================================
+
+Summary.
+
+Notes
+-----xyz
 body
 
 --------------------------------------------------------------------------------

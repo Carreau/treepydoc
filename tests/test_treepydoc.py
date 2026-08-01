@@ -775,6 +775,7 @@ def test_playground_sample_exercises_the_interesting_nodes():
         "parameters_section",
         "typed_section",
         "dangling_separator",
+        "section_underline_overlong",
         "role",
         "index_marker",
     ):
@@ -873,3 +874,89 @@ def test_warts_issues_recognises_the_issues_it_opened():
         [{"number": 7, "title": "t", "body": body, "state": "OPEN"}]
     )
     assert set(gh.existing()) == {"disagreement:abc123"}
+
+
+# ---------------------------------------------------------------------------
+# Overlong section underlines
+# ---------------------------------------------------------------------------
+
+OVERLONG_CASES = [
+    # (docstring, does numpydoc warn about the underline length?)
+    ("S.\n\nNotes\n-----\nbody\n", False),
+    ("S.\n\nNotes\n----------\nbody\n", True),
+    ("S.\n\nNotes\n==========\nbody\n", True),
+    # `startswith` matches, but `set(l2)` is not a single adornment, so
+    # numpydoc stays quiet and so does the tree.
+    ("S.\n\nNotes\n-----xyz\nbody\n", False),
+    # `len(l2) >= 3` gates the warning.
+    ("S.\n\nAb\n--\nbody\n", False),
+    ("S.\n\nParameters\n---------------\nx : int\n    d\n", True),
+    # Indented, as an editor would hand it over.
+    ("S.\n\n  Notes\n  ----------\n  body\n", True),
+]
+
+
+def _underline_types(text):
+    types = []
+
+    def walk(node):
+        if node.type.startswith("section_underline"):
+            types.append(node.type)
+        for child in node.children:
+            walk(child)
+
+    walk(treepydoc.parse(text).root_node)
+    return types
+
+
+@pytest.mark.parametrize("text,warns", OVERLONG_CASES, ids=range(len(OVERLONG_CASES)))
+def test_overlong_underline_node_tracks_numpydocs_warning(text, warns):
+    """The node exists exactly where numpydoc would warn -- no more, no less."""
+    docscrape = pytest.importorskip("numpydoc.docscrape")
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        docscrape.NumpyDocString(text)
+    actually_warns = any("underline length" in str(w.message) for w in caught)
+    assert actually_warns is warns, "the fixture disagrees with numpydoc"
+
+    types = _underline_types(text)
+    assert types, "no underline node at all"
+    flagged = [t for t in types if t == "section_underline_overlong"]
+    assert bool(flagged) is warns
+
+
+@pytest.mark.parametrize("text,warns", OVERLONG_CASES, ids=range(len(OVERLONG_CASES)))
+def test_overlong_underline_does_not_change_the_parse(text, warns):
+    """Splitting the node must not move a single key."""
+    docscrape = pytest.importorskip("numpydoc.docscrape")
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        expected = docscrape.NumpyDocString(text)
+        actual = treepydoc.NumpyDocString(text)
+    for key in docscrape.NumpyDocString.sections:
+        assert _normalise(actual[key]) == _normalise(expected[key]), key
+
+
+def test_overlong_underline_keeps_the_underline_field():
+    """`underline:` still resolves, so consumers do not have to know."""
+    tree = treepydoc.parse("S.\n\nNotes\n----------\nbody\n")
+    section = tree.root_node.children[-1]
+    underline = section.child_by_field_name("underline")
+    assert underline is not None
+    assert underline.type == "section_underline_overlong"
+    assert underline.text.decode() == "----------"
+
+
+def test_overlong_underline_is_highlighted_and_diagnosed():
+    """Both shipped query files have to know the node, or it is invisible."""
+    for name, capture in (
+        ("highlights.scm", "comment.warning"),
+        ("diagnostics.scm", "diagnostic.overlong_underline"),
+    ):
+        query = tree_sitter.Query(
+            treepydoc.language(), (EDITOR_QUERIES / "numpydoc" / name).read_text()
+        )
+        tree = treepydoc.parse("S.\n\nNotes\n----------\nbody\n")
+        captured = tree_sitter.QueryCursor(query).captures(tree.root_node)
+        assert [n.text.decode() for n in captured.get(capture, [])] == ["----------"]

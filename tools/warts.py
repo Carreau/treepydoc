@@ -81,7 +81,7 @@ KINDS = {
     "unstripped-field": "name or type keeps stray whitespace, never comparing equal",
     "dangling-separator": "a header ending ' :' declared a type and lost it silently",
     "empty-section": "an empty body becomes one blank Parameter rather than none",
-    "underline-length": "underline length does not match the title (numpydoc warns)",
+    "underline-length": "underline longer than the title; numpydoc warns to stderr",
     "spaced-index": "'.. index ::' is not recognised; the directive is read as prose",
     "numpydoc-raises": "numpydoc raises on this docstring",
     "parser-disagreement": "treepydoc and numpydoc disagree -- our bug, not numpydoc's",
@@ -212,17 +212,20 @@ def scan_docstring(text, known):
                 else:
                     yield "unknown-section", row, col, title, "the body is discarded"
 
-        if underline is not None:
-            want, got = len(title), len(underline.text.decode())
-            if want != got:
-                r, c = underline.start_point
-                yield (
-                    "underline-length",
-                    r,
-                    c,
-                    underline.text.decode(),
-                    f"{got} characters under a {want}-character title",
-                )
+        # The grammar names this case rather than the length being recomputed
+        # here: `-----xyz` is longer than its title and numpydoc does *not*
+        # warn about it, because the check also requires the underline to be
+        # all one adornment character.
+        if underline is not None and underline.type == "section_underline_overlong":
+            r, c = underline.start_point
+            text = underline.text.decode()
+            yield (
+                "underline-length",
+                r,
+                c,
+                text,
+                f"{len(text)} characters under a {len(title)}-character title",
+            )
 
         if section.type in ("parameters_section", "typed_section"):
             kinds = ("parameter", "typed_entry")

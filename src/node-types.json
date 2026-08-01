@@ -136,6 +136,10 @@
           {
             "type": "section_underline",
             "named": true
+          },
+          {
+            "type": "section_underline_overlong",
+            "named": true
           }
         ]
       }
@@ -246,6 +250,10 @@
         "types": [
           {
             "type": "section_underline",
+            "named": true
+          },
+          {
+            "type": "section_underline_overlong",
             "named": true
           }
         ]
@@ -415,6 +423,10 @@
         "types": [
           {
             "type": "section_underline",
+            "named": true
+          },
+          {
+            "type": "section_underline_overlong",
             "named": true
           }
         ]
@@ -590,6 +602,10 @@
           {
             "type": "section_underline",
             "named": true
+          },
+          {
+            "type": "section_underline_overlong",
+            "named": true
           }
         ]
       }
@@ -643,6 +659,10 @@
   },
   {
     "type": "section_underline",
+    "named": true
+  },
+  {
+    "type": "section_underline_overlong",
     "named": true
   },
   {

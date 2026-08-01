@@ -42,6 +42,7 @@ enum TokenType {
   ENTRY_SEPARATOR,
   ENTRY_SECOND,
   DANGLING_SEPARATOR,
+  OVERLONG_UNDERLINE,
   ERROR_SENTINEL,
 };
 
@@ -67,6 +68,11 @@ typedef struct {
   // at column 0. Learned from the first body line of each section.
   uint16_t entry_indent;
   bool entry_indent_set;
+  // Set at a section header when `_is_at_section` would warn that the
+  // underline is the wrong length, and consumed by the zero-width guard on the
+  // underline itself. The two are three tokens apart -- title, spacing,
+  // newline -- so the answer has to be carried, not recomputed.
+  bool pending_overlong;
 } Scanner;
 
 // ---------------------------------------------------------------- char classes
@@ -325,6 +331,22 @@ static int classify_section(const char *s, uint32_t len) {
 // `l2.startswith('-'*len(l1)) or l2.startswith('='*len(l1))`. This is
 // `startswith`, not equality: a longer underline, or one with trailing junk
 // after enough adornment characters, still counts.
+// `if len(l2) >= 3 and set(l2) in ({'-'}, {'='}) and len(l2) != len(l1)`:
+// numpydoc warns, and keeps going. Reached only where `underline_matches` has
+// already said yes, so `len(l2) != len(l1)` can only mean the underline is too
+// long -- a short one is not a section header at all.
+static bool underline_warns(const Line *underline, uint32_t title_len) {
+  uint32_t s;
+  uint32_t e;
+  line_strip(underline, &s, &e);
+  uint32_t len = e - s;
+  if (underline->truncated || len < 3 || len == title_len) return false;
+  for (uint32_t i = s + 1; i < e; i++) {
+    if (underline->data[i] != underline->data[s]) return false;
+  }
+  return true;
+}
+
 static bool underline_matches(const Line *underline, uint32_t title_len) {
   uint32_t s;
   uint32_t e;
@@ -552,6 +574,14 @@ bool tree_sitter_numpydoc_external_scanner_scan(void *payload, TSLexer *lexer,
   // Baseline for every guard below: the token ends here, whatever we read next.
   lexer->mark_end(lexer);
 
+  // Zero-width, and only ever valid immediately before a section underline.
+  if (valid_symbols[OVERLONG_UNDERLINE]) {
+    if (!scanner->pending_overlong) return false;
+    scanner->pending_overlong = false;
+    lexer->result_symbol = OVERLONG_UNDERLINE;
+    return true;
+  }
+
   bool starts_with_indent = is_space(lexer->lookahead);
   bool consumed_indent = starts_with_indent;
   uint32_t indent_columns = 0;
@@ -619,6 +649,7 @@ bool tree_sitter_numpydoc_external_scanner_scan(void *payload, TSLexer *lexer,
     scanner->entry_indent =
         (uint16_t)(body_indent == UINT32_MAX ? 0 : body_indent);
     scanner->entry_indent_set = true;
+    scanner->pending_overlong = underline_warns(&next, title_len);
     lexer->result_symbol = symbol;
     return true;
   }
@@ -722,6 +753,7 @@ void *tree_sitter_numpydoc_external_scanner_create(void) {
   scanner->header_end = 0;
   scanner->entry_indent = 0;
   scanner->entry_indent_set = false;
+  scanner->pending_overlong = false;
   return scanner;
 }
 
@@ -740,13 +772,15 @@ unsigned tree_sitter_numpydoc_external_scanner_serialize(void *payload,
   buffer[5] = (char)(scanner->entry_indent & 0xFF);
   buffer[6] = (char)((scanner->entry_indent >> 8) & 0xFF);
   buffer[7] = (char)scanner->entry_indent_set;
-  return 8;
+  buffer[8] = (char)scanner->pending_overlong;
+  return 9;
 }
 
 void tree_sitter_numpydoc_external_scanner_deserialize(void *payload,
                                                        const char *buffer,
                                                        unsigned length) {
   Scanner *scanner = (Scanner *)payload;
+  scanner->pending_overlong = length >= 9 && (bool)buffer[8];
   if (length >= 8) {
     scanner->entry_indent = (uint16_t)((unsigned char)buffer[5]) |
                             (uint16_t)((unsigned char)buffer[6] << 8);
