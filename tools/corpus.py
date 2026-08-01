@@ -515,3 +515,28 @@ CORPUS.append((
     "This underline is shorter than the title and is not treated as a\n"
     "section header.\n"
 ))
+
+
+CORPUS.append(
+    (
+        "see_also_blank_line_inside_description",
+        # `_parse_see_also` skips blank lines outright, so an indented line
+        # after one still continues the entry above it. Found in
+        # scikit-learn's LinearSVC docstring, which the grammar used to
+        # reject outright.
+        """\
+Linear Support Vector Classification.
+
+See Also
+--------
+SVC : Implementation of Support Vector Machine classifier using libsvm:
+    the kernel can be non-linear but its SMO algorithm does not
+    scale to large number of samples as LinearSVC does.
+
+    Furthermore SVC multi-class mode is implemented using one
+    vs one scheme while LinearSVC uses one vs the rest.
+sklearn.linear_model.SGDClassifier : SGDClassifier can optimize the same
+    cost function as LinearSVC by adjusting the penalty and loss parameters.
+""",
+    )
+)

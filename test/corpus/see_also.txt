@@ -197,3 +197,40 @@ foo
         (see_also_target
           (plain_target
             (name)))))))
+
+================================================================================
+Blank line inside a description does not end the entry
+================================================================================
+
+See Also
+--------
+SVC : Implementation using libsvm:
+    the kernel can be non-linear.
+
+    Furthermore SVC multi-class mode uses one vs one.
+other : Second entry.
+
+--------------------------------------------------------------------------------
+
+(document
+  (see_also_section
+    (section_name)
+    (section_underline)
+    (see_also_entry
+      (see_also_targets
+        (see_also_target
+          (plain_target
+            (name))))
+      (see_also_description
+        (text))
+      (see_also_continuation
+        (text))
+      (see_also_continuation
+        (text)))
+    (see_also_entry
+      (see_also_targets
+        (see_also_target
+          (plain_target
+            (name))))
+      (see_also_description
+        (text)))))

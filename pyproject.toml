@@ -54,7 +54,21 @@ strict_equality = true
 # Neither numpydoc nor Sphinx's internals ship type information, and jinja2's
 # are partial. treepydoc is checked; what it talks to is not.
 [[tool.mypy.overrides]]
-module = ["numpydoc.*", "sphinx.*", "jinja2.*", "corpus", "conformance", "sweep"]
+module = [
+  "numpydoc.*",
+  "sphinx.*",
+  "jinja2.*",
+  "corpus",
+  "conformance",
+  "sweep",
+  # The lint job installs only the lint group, so the compiled extension and
+  # the tree-sitter runtime are not importable there; neither ships stubs in
+  # any case.
+  "tree_sitter",
+  "tree_sitter.*",
+  "tree_sitter_python",
+  "tree_sitter_numpydoc",
+]
 ignore_missing_imports = true
 
 # pytest ships type information that mypy would otherwise analyse in full;
@@ -62,6 +76,7 @@ ignore_missing_imports = true
 [[tool.mypy.overrides]]
 module = ["pytest", "_pytest.*"]
 follow_imports = "skip"
+ignore_missing_imports = true
 
 [tool.scikit-build]
 minimum-version = "build-system.requires"

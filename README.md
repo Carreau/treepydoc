@@ -116,6 +116,20 @@ The plain object API matches too, for callers that use it directly:
 - **Incremental reparsing**, and **injection** of `tree-sitter-rst` into the
   prose sections so `Notes` and `Examples` highlight as real reStructuredText.
 
+`tools/warts.py` is what that buys. Point it at a checkout and it reports every
+place numpydoc quietly does the wrong thing, with a `file:line` for each and the
+consequence confirmed against numpydoc itself:
+
+```sh
+python3 tools/warts.py ~/numpy-src ~/scipy-src ~/pandas-src
+```
+
+Across numpy, scipy, pandas, matplotlib and scikit-learn — 21 499 docstrings —
+it finds 33 sections whose entire body is silently discarded because the title
+is misspelled (`Return`, `Example`, `Parameters:`), 12 docstrings numpydoc
+refuses outright, and 44 headers that declared a type and lost it. See
+[PLAN.md](PLAN.md).
+
 ## Editor support
 
 [`editors/README.md`](editors/README.md) has a complete Neovim setup: build the
@@ -206,6 +220,7 @@ tools/run_numpydoc_suite.py  runs numpydoc's tests both ways and diffs
 tools/smoke_test.py     post-install check, imports nothing from the tree
 tools/highlight_demo.py runs the editor pipeline outside an editor
 tools/playground.py     serves the browser playground, seeded with a docstring
+tools/warts.py          finds live instances of numpydoc's warts in a source tree
 editors/                Neovim queries and setup
 CMakeLists.txt          builds the extension; no setup.py
 .github/workflows/      CI: grammar, build, conformance, differential, lint, package

@@ -147,10 +147,16 @@ module.exports = grammar({
       // that is never attached to anything, silently losing the text; the
       // grammar keeps them addressable instead.
       optional($.orphan_continuation),
-      repeat(seq($.see_also_entry, repeat($._blank_line))),
+      repeat($.see_also_entry),
     ),
 
-    orphan_continuation: $ => repeat1($.see_also_continuation),
+    // `_parse_see_also` opens with `if not line.strip(): continue`, so a blank
+    // line inside the section is skipped entirely rather than ending an entry:
+    // an indented line after one still continues the entry above it. Blanks
+    // therefore live inside the entry, not between entries.
+    orphan_continuation: $ => repeat1(
+      seq($.see_also_continuation, repeat($._blank_line)),
+    ),
 
     // Notes / Warnings / References / Examples and any unrecognised title: the
     // body is kept verbatim as lines.
@@ -255,7 +261,7 @@ module.exports = grammar({
       optional($._h_space),
       optional($.see_also_description),
       $._newline,
-      repeat($.see_also_continuation),
+      repeat(choice($.see_also_continuation, $._blank_line)),
     ),
 
     see_also_continuation: $ => seq(

@@ -140,6 +140,39 @@ Left:
 
 ---
 
+## What the warts cost in practice
+
+`tools/warts.py` answers the question that decides whether any of this is worth
+an upstream patch: *does it happen to anybody?* It locates every docstring with
+tree-sitter-python (so each finding has a real `file:line`), parses it with
+treepydoc, and confirms the consequence against numpydoc itself — a pattern
+match is not a finding unless `NumpyDocString` actually mis-handles it.
+
+Over **21 499 docstrings** in numpy, scipy, pandas, matplotlib and
+scikit-learn, at their current `main`:
+
+| Finding | Count | Where |
+| --- | --- | --- |
+| `unknown-section` | 172 | 130 scipy, 31 numpy, 5 sklearn, 3 pandas, 3 matplotlib |
+| `dangling-separator` | 44 | 18 pandas, 12 scipy, 5 numpy, 5 matplotlib, 4 sklearn |
+| `misspelled-section` | 33 | 13 sklearn, 11 pandas, 7 scipy, 2 numpy |
+| `unstripped-field` | 32 | 13 pandas, 10 scipy, 7 sklearn, 2 matplotlib |
+| `underline-length` | 14 | 5 scipy, 5 pandas, 4 sklearn |
+| `numpydoc-raises` | 12 | 5 numpy, 4 pandas, 3 sklearn |
+
+The 33 `misspelled-section` hits are the ones that matter, because each is a
+section whose entire body is dropped without any output the author would see:
+`Return` (7×), `Example` (4×), `Warning` (3×), `Parameters:` (3×),
+`Reference` (3×), `Note`, `Parameter`, `Raise`, `Params`, `Class Attributes`.
+`sklearn/utils/validation.py`'s `_check_categorical_features` writes `Return`
+and loses its whole return description; the warning goes to stderr during a
+docs build and nowhere else.
+
+The 12 `numpydoc-raises` are hard failures on shipped code — every
+`numpy.polynomial` submodule's docstring dies on
+``See Also: `numpy.polynomial` `` because a plain reStructuredText literal is
+not one of the two spellings `_func_rgx` accepts.
+
 ## Upstream fixes to numpydoc
 
 Four fixes were prepared against the old fork before the retarget. Checking them
