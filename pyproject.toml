@@ -28,6 +28,9 @@ dependencies = ["tree_sitter>=0.23"]
 # The differential suites need something to compare against.
 test = ["pytest", "tree-sitter-python", "numpydoc>=1.10"]
 sphinx = ["sphinx", "jinja2"]
+# `queries/injections.scm` hands the prose regions to `rst`. Only the demo and
+# its test actually resolve that name to a parser; an editor brings its own.
+rst = ["tree-sitter-rst>=0.2"]
 # The parser targets this numpydoc; see PLAN.md section 0.
 numpydoc = ["numpydoc>=1.10"]
 
@@ -70,6 +73,7 @@ module = [
   "tree_sitter",
   "tree_sitter.*",
   "tree_sitter_python",
+  "tree_sitter_rst",
   "tree_sitter_numpydoc",
 ]
 ignore_missing_imports = true

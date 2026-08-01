@@ -6,12 +6,18 @@ This does exactly what nvim does with the queries in `editors/nvim`:
 2. run `queries/python/injections.scm` to find the docstring regions,
 3. parse each region with the numpydoc grammar,
 4. run `queries/numpydoc/highlights.scm` over it,
+5. run `queries/numpydoc/injections.scm` and hand the prose regions to
+   tree-sitter-rst, recursively.
 
 and then prints the docstring with each captured span labelled. It is both the
-demo and the test that the queries actually compile and capture what they claim.
+demo and the test that the queries actually compile and capture what they claim
+-- including that the rst hand-off is real and not just a line in a query file.
+
+Step 5 needs `tree-sitter-rst` installed. Without it the run still works and
+reports the regions it would have handed over.
 
 Usage:
-    python3 tools/highlight_demo.py [file.py] [--color] [--tree]
+    python3 tools/highlight_demo.py [file.py] [--color] [--tree] [--layers]
 """
 
 from __future__ import annotations
@@ -36,11 +42,15 @@ def multivariate_normal(mean, cov, shape=None):
     Parameters
     ----------
     mean : (N,) ndarray
-        Mean of the N-dimensional distribution.
+        Mean of the N-dimensional distribution, as returned by
+        :func:`numpy.mean`.
     cov : (N, N) ndarray
-        Covariance matrix of the distribution.
+        Covariance matrix of the distribution. It must be:
+
+        - symmetric,
+        - positive-semidefinite.
     shape : tuple of ints
-        Shape of the output.
+        Shape of the output. ``None`` draws a single sample.
 
     Returns
     -------
@@ -49,13 +59,23 @@ def multivariate_normal(mean, cov, shape=None):
 
     See Also
     --------
-    normal : The one-dimensional case.
+    normal : The one-dimensional case, see :func:`numpy.random.normal`.
     :func:`numpy.random.standard_normal`
 
     Notes
     -----
     Instead of specifying the full covariance matrix, popular approximations
     include diagonal and low-rank forms.
+
+    .. math::
+
+        f(x) = \\frac{1}{\\sqrt{2\\pi}} e^{-x^2/2}
+
+    Examples
+    --------
+    >>> mean = (1, 2)
+    >>> multivariate_normal(mean, [[1, 0], [0, 1]])
+    array([1.2, 2.3])
     """
 '''
 
@@ -74,6 +94,55 @@ COLORS = {
     "comment": "90",
     "markup.italic": "3",
 }
+
+
+def rst_language():
+    """tree-sitter-rst, if this environment has it."""
+    try:
+        import tree_sitter_rst
+    except ImportError:
+        return None
+    return tree_sitter.Language(tree_sitter_rst.language())
+
+
+def injected_layers(region: bytes, tree) -> list[dict]:
+    """Follow `queries/numpydoc/injections.scm` the way an editor would.
+
+    Returns one entry per injected region: which language it was handed to,
+    what it covers, and -- when that parser is actually installed -- the node
+    types the child grammar found in it.
+    """
+    query = tree_sitter.Query(
+        treepydoc.language(), (QUERY_DIR / "numpydoc" / "injections.scm").read_text()
+    )
+    captures = tree_sitter.QueryCursor(query).captures(tree.root_node)
+    language = rst_language()
+    parser = tree_sitter.Parser(language) if language is not None else None
+
+    layers = []
+    nodes = captures.get("injection.content", [])
+    for node in sorted(nodes, key=lambda n: n.start_byte):
+        entry = {
+            "start": node.start_byte,
+            "end": node.end_byte,
+            "host": node.type,
+            "text": node.text,
+            "types": None,
+            "error": None,
+        }
+        if parser is not None:
+            child = parser.parse(node.text)
+            entry["types"] = sorted({n.type for n in _descend(child.root_node)})
+            entry["error"] = child.root_node.has_error
+        layers.append(entry)
+    return layers
+
+
+def _descend(node):
+    for child in node.children:
+        if child.is_named:
+            yield child
+        yield from _descend(child)
 
 
 def python_language() -> tree_sitter.Language:
@@ -142,6 +211,9 @@ def main():
     ap.add_argument("file", nargs="?", help="a .py file; omit for the built-in sample")
     ap.add_argument("--color", action="store_true", help="ANSI colours")
     ap.add_argument("--tree", action="store_true", help="also dump the numpydoc tree")
+    ap.add_argument(
+        "--layers", action="store_true", help="show each injected rst region in full"
+    )
     args = ap.parse_args()
 
     source = Path(args.file).read_bytes() if args.file else SAMPLE.encode()
@@ -169,6 +241,26 @@ def main():
         for _, _, name in spans:
             counts[name] = counts.get(name, 0) + 1
         print("\ncaptures: " + ", ".join(f"{k}={v}" for k, v in sorted(counts.items())))
+
+        layers = injected_layers(region, tree)
+        if layers and layers[0]["types"] is None:
+            print(f"\n{len(layers)} region(s) would be handed to rst "
+                  "(install tree-sitter-rst to parse them)")
+        elif layers:
+            found = sorted({t for layer in layers for t in layer["types"]})
+            broken = sum(1 for layer in layers if layer["error"])
+            print(
+                f"\n{len(layers)} region(s) handed to rst -> "
+                f"{len(found)} node types: " + ", ".join(found)
+            )
+            if broken:
+                problems += 1
+                print(f"  NOTE: {broken} region(s) did not parse as rst")
+        for layer in layers if args.layers else []:
+            head = layer["text"].decode("utf-8", "replace").strip().splitlines()
+            print(f"  [{layer['host']}] {head[0][:60] if head else ''!r}"
+                  f" -> {', '.join(layer['types'] or ['(rst not installed)'])}")
+
         if args.tree:
             print("\n" + str(tree.root_node))
 

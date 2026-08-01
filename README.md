@@ -116,8 +116,14 @@ The plain object API matches too, for callers that use it directly:
   all, are nodes: the ` :` that `header.removesuffix(" :")` silently drops
   (`dangling_separator`), and an underline longer than its title
   (`section_underline_overlong`). An editor can mark both.
-- **Incremental reparsing**, and **injection** of `tree-sitter-rst` into the
-  prose sections so `Notes` and `Examples` highlight as real reStructuredText.
+- **Incremental reparsing**, and **deferral**: numpydoc never looks inside its
+  prose, so neither does this grammar — `queries/injections.scm` hands the
+  summary, the descriptions, the See Also prose and the `Notes` / `Examples`
+  bodies to `tree-sitter-rst` instead. Bullet lists, roles, inline literals,
+  directives and doctest blocks then highlight without this grammar knowing
+  what any of them are. `tools/highlight_demo.py --layers` walks the whole
+  chain — Python to numpydoc to rst — so the hand-off is demonstrated rather
+  than asserted.
 
 `tools/warts.py` is what that buys. Point it at a checkout and it reports every
 place numpydoc quietly does the wrong thing, with a `file:line` for each and the

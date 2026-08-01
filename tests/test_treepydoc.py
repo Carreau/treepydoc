@@ -960,3 +960,108 @@ def test_overlong_underline_is_highlighted_and_diagnosed():
         tree = treepydoc.parse("S.\n\nNotes\n----------\nbody\n")
         captured = tree_sitter.QueryCursor(query).captures(tree.root_node)
         assert [n.text.decode() for n in captured.get(capture, [])] == ["----------"]
+
+
+# ---------------------------------------------------------------------------
+# Deferring the prose regions to tree-sitter-rst
+# ---------------------------------------------------------------------------
+
+RST_DOC = """\
+Draw samples, see :func:`numpy.mean`.
+
+Parameters
+----------
+mean : ndarray
+    The mean. It must be:
+
+    - finite,
+    - real.
+
+See Also
+--------
+normal : The one-dimensional case, see :func:`numpy.random.normal`.
+
+Notes
+-----
+Prose with ``a literal``.
+
+>>> f(1)
+2
+"""
+
+
+def _injected(text):
+    """(host node type, region text) for every rst injection, as nvim sees it."""
+    query = tree_sitter.Query(
+        treepydoc.language(),
+        (EDITOR_QUERIES / "numpydoc" / "injections.scm").read_text(),
+    )
+    tree = treepydoc.parse(text)
+    captured = tree_sitter.QueryCursor(query).captures(tree.root_node)
+    nodes = sorted(captured.get("injection.content", []), key=lambda n: n.start_byte)
+    return [(n.parent.type if n.type == "text" else n.type, n.text) for n in nodes]
+
+
+def test_injections_cover_every_prose_region():
+    """Each kind of region numpydoc treats as reStructuredText is handed over."""
+    hosts = {host for host, _ in _injected(RST_DOC)}
+    assert hosts == {
+        "summary",
+        "description",
+        "see_also_description",
+        "section_body",
+    }
+
+
+def test_injections_leave_the_structured_nodes_alone():
+    """A signature is not Python and a type is not a block; neither is injected."""
+    text = (
+        "f(x[, y])\n\nSummary.\n\n"
+        "Parameters\n----------\nx : :class:`ndarray`\n    d\n"
+    )
+    hosts = {host for host, _ in _injected(text)}
+    assert "signature" not in hosts
+    assert "type" not in hosts
+
+
+def test_injected_regions_parse_as_rst():
+    """The hand-off is real: rst finds structure the numpydoc grammar cannot."""
+    tree_sitter_rst = pytest.importorskip("tree_sitter_rst")
+    language = tree_sitter.Language(tree_sitter_rst.language())
+    parser = tree_sitter.Parser(language)
+
+    def node_types(source):
+        found = set()
+        stack = [parser.parse(source).root_node]
+        while stack:
+            node = stack.pop()
+            found.add(node.type)
+            stack.extend(node.children)
+        return found
+
+    by_host = {}
+    for host, region in _injected(RST_DOC):
+        by_host.setdefault(host, set()).update(node_types(region))
+
+    # A role in the summary, a bullet list in a parameter description, a role
+    # in a See Also description, an inline literal and a doctest in Notes.
+    assert "role" in by_host["summary"]
+    assert "bullet_list" in by_host["description"]
+    assert "role" in by_host["see_also_description"]
+    assert {"literal", "doctest_block"} <= by_host["section_body"]
+
+
+def test_indented_regions_become_a_block_quote():
+    """The known cost of injecting an editor's un-dedented text.
+
+    A parameter description is indented under its header, and rst reads a
+    leading indent as a block quote. The content inside still parses -- this
+    pins the wrapper so the caveat in editors/README.md stays honest.
+    """
+    tree_sitter_rst = pytest.importorskip("tree_sitter_rst")
+    language = tree_sitter.Language(tree_sitter_rst.language())
+    parser = tree_sitter.Parser(language)
+
+    region = next(r for host, r in _injected(RST_DOC) if host == "description")
+    assert region.startswith(b"    ")
+    assert parser.parse(region).root_node.children[0].type == "block_quote"

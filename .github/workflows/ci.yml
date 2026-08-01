@@ -108,7 +108,7 @@ jobs:
           python-version: "3.12"
 
       - run: python -m pip install --upgrade pip
-      - run: python -m pip install '.[test,sphinx]' "numpydoc==${NUMPYDOC_VERSION}"
+      - run: python -m pip install '.[test,sphinx,rst]' "numpydoc==${NUMPYDOC_VERSION}"
 
       - name: unit tests, including the differential cases
         working-directory: ${{ runner.temp }}
@@ -124,9 +124,11 @@ jobs:
       - name: numpydoc's own test suite
         run: python tools/run_numpydoc_suite.py
 
-      # The editor queries are only exercised if something runs them.
+      # The editor queries are only exercised if something runs them -- and
+      # with tree-sitter-rst installed this also follows the injections, so a
+      # region the query hands to rst has to actually parse as rst.
       - name: editor queries capture what editors/README.md claims
-        run: python tools/highlight_demo.py
+        run: python tools/highlight_demo.py --layers
 
       - name: end-to-end Sphinx build, both parsers
         working-directory: ${{ runner.temp }}

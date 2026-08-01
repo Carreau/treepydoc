@@ -7,8 +7,8 @@ project.
 ## What you get
 
 Section titles, their underlines, parameter names and types, See Also targets
-and roles, and the `.. index::` marker, each with its own capture. Plus two nodes whose
-whole reason to exist is to be complained about:
+and roles, and the `.. index::` marker, each with its own capture. Plus two
+nodes whose whole reason to exist is to be complained about:
 
 - `dangling_separator` — the ` :` that `header.removesuffix(" :")` throws away,
   so you can see a header that declared a type and then did not.
@@ -106,12 +106,17 @@ python3 tools/highlight_demo.py --color
 ```
 
 ```
-captures: comment=6, function=2, markup.heading=4, markup.italic=1,
-markup.raw.block=1, property=1, punctuation.bracket=2,
-punctuation.delimiter=7, punctuation.special=4, type=4, variable.parameter=4
+captures: comment=6, function=2, markup.heading=5, markup.italic=1,
+markup.raw.block=2, property=1, punctuation.bracket=2,
+punctuation.delimiter=7, punctuation.special=5, type=4, variable.parameter=4
+
+9 region(s) handed to rst -> 12 node types: block_quote, body, bullet_list,
+content, directive, doctest_block, interpreted_text, list_item, literal,
+paragraph, role, type
 ```
 
-Four headings, four underlines, four parameter names, four types.
+Five headings, five underlines, four parameter names, four types — and nine
+regions the numpydoc grammar deliberately does not look inside.
 
 ## Capture names
 
@@ -135,7 +140,43 @@ browser playground — `npm run playground` from the repository root — which r
 the same query language against the same grammar and shows what each pattern
 matches. See the README's *Playground* section.
 
-`queries/injections.scm` additionally hands the prose sections (`Notes`,
-`Examples`, `References`, and parameter descriptions) to `rst`, so install
-[tree-sitter-rst](https://github.com/stsewd/tree-sitter-rst) if you want those
-highlighted as reStructuredText rather than as plain text.
+## Deferring the prose to reStructuredText
+
+numpydoc never looks inside its prose regions — it strips, dedents and joins
+them as raw lines and hands the result to Sphinx. This grammar does the same,
+and `queries/injections.scm` says who *should* look inside: `rst`. Install
+[tree-sitter-rst](https://github.com/stsewd/tree-sitter-rst) and bullet lists,
+roles, inline literals, directives and doctest blocks all light up inside
+docstrings without this grammar knowing what any of them are.
+
+Five regions are handed over:
+
+| Node | Why it is reStructuredText |
+| --- | --- |
+| `summary` | emitted verbatim into the generated RST |
+| `extended_summary` | same |
+| `description` | a parameter/return description is free-form RST |
+| `see_also_description`, `see_also_continuation` | end up in an RST definition list |
+| `section_body` of a `generic_section` | `Notes`, `Examples`, `References`, and anything unrecognised |
+
+Two nodes are deliberately **not** injected:
+
+- **`signature`.** It looks like Python and is not. `ufunc(x, /, out=None, *,
+  where=True)`, `f(x[, y])` and `g(a, b=<no value>)` are all signatures
+  numpydoc accepts, and all three are syntax errors to tree-sitter-python —
+  injecting `python` would put an ERROR node under most of numpy.
+- **`type`.** Only 0.5% of types across scipy and scikit-learn contain a role,
+  and a type is an inline fragment rather than a block. It is a one-line
+  addition if you disagree.
+
+### The indentation cost
+
+An editor hands over the docstring as it appears in the file, and a parameter
+description is indented under its header. reStructuredText reads a leading
+indent as a **block quote**, so an injected description parses as
+`(block_quote (paragraph …))` rather than `(paragraph …)`.
+
+Everything inside still parses and still highlights — the wrapper is the only
+difference — and there is no fix available from this side: injection ranges can
+be offset, but not dedented per line. `test_indented_regions_become_a_block_quote`
+pins the behaviour so this note stays true.
