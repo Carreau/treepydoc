@@ -22,7 +22,7 @@
     "generate": "tree-sitter generate",
     "test": "tree-sitter test",
     "wasm": "tree-sitter build --wasm",
-    "playground": "tree-sitter build --wasm && tree-sitter playground",
-    "playground:export": "tree-sitter build --wasm && tree-sitter playground --export playground"
+    "playground": "python3 tools/playground.py",
+    "playground:export": "python3 tools/playground.py --export playground"
   }
 }

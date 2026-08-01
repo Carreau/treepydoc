@@ -51,13 +51,15 @@ jobs:
       - name: the scanner builds to Wasm
         run: npx tree-sitter build --wasm
 
-      # Proves the playground is servable from a clean checkout: the export
-      # writes exactly the files `tree-sitter playground` would serve.
+      # Proves the playground is servable from a clean checkout, and that the
+      # seeding patch still finds its insertion point -- tools/playground.py
+      # exits non-zero if a CLI upgrade reshapes the page it edits.
       - name: playground exports
         run: |
-          npx tree-sitter playground --export playground
+          python3 tools/playground.py --export playground
           test -s playground/index.html
           test -s playground/tree-sitter-parser.wasm
+          grep -q 'treepydoc.seed' playground/index.html
 
   build:
     name: build (${{ matrix.os }}, py${{ matrix.python }})

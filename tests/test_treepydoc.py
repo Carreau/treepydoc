@@ -738,3 +738,57 @@ def test_highlights_capture_section_headings():
     headings = {n.text.decode() for n in captured.get("markup.heading", [])}
     assert {"Parameters", "Returns", "See Also", "Notes"} <= headings
     assert {n.text.decode() for n in captured.get("variable.parameter", [])} >= {"mean"}
+
+
+# ---------------------------------------------------------------------------
+# The playground's seeded sample
+#
+# `tools/playground.py` bakes a docstring into the exported page, and its
+# comment claims that docstring exercises specific nodes. Both halves of that
+# claim are checkable here, so the sample cannot rot into something that
+# renders an ERROR the moment anyone opens the playground.
+# ---------------------------------------------------------------------------
+
+
+def _load_playground():
+    spec = importlib.util.spec_from_file_location(
+        "_treepydoc_playground", TOOLS_DIR / "playground.py"
+    )
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_playground_sample_parses_cleanly():
+    tree = treepydoc.parse(_load_playground().SAMPLE)
+    assert not list(all_errors(tree.root_node))
+
+
+def test_playground_sample_exercises_the_interesting_nodes():
+    """The nodes tools/playground.py says the sample is there to show."""
+    tree = treepydoc.parse(_load_playground().SAMPLE)
+    for node_type in (
+        "signature",
+        "extended_summary",
+        "parameters_section",
+        "typed_section",
+        "dangling_separator",
+        "role",
+        "index_marker",
+    ):
+        found = list(find_all(tree.root_node, node_type))
+        assert found, f"no {node_type} in the sample"
+
+
+def test_playground_sample_matches_numpydoc():
+    docscrape = pytest.importorskip("numpydoc.docscrape")
+    sample = _load_playground().SAMPLE
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        expected = docscrape.NumpyDocString(sample)
+        actual = treepydoc.NumpyDocString(sample)
+
+    for key in docscrape.NumpyDocString.sections:
+        want = _normalise(expected[key])
+        assert _normalise(actual[key]) == want, f"mismatch in {key!r}"

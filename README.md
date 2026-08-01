@@ -139,14 +139,10 @@ npm install
 npm run playground          # builds the Wasm parser, then serves it
 ```
 
-That prints `Started playground on: http://127.0.0.1:8000` and opens a browser.
-The two steps are separate if you want them to be — `npm run wasm` is
-`tree-sitter build --wasm`, and `npx tree-sitter playground` refuses to start
-without it:
-
-```
-Error: Failed to read tree-sitter-numpydoc.wasm. Run `tree-sitter build --wasm` first.
-```
+That prints `Started playground on: http://127.0.0.1:8000`, opens a browser, and
+starts you on a docstring rather than on an empty pane — signature, both entry
+flavours, a See Also role, an `.. index::`, and a deliberately malformed
+`shape :` so the `dangling_separator` node is visible from the first second.
 
 Worth knowing:
 
@@ -154,19 +150,41 @@ Worth knowing:
   needed any more; the CLI fetches wasi-sdk (~113 MB) into
   `~/.cache/tree-sitter/` once. The build itself takes a few seconds and
   produces a 50 KB `tree-sitter-numpydoc.wasm` (git-ignored).
-- **`-q` skips opening a browser**, which is what you want over SSH — pair it
-  with `TREE_SITTER_PLAYGROUND_ADDR` / `TREE_SITTER_PLAYGROUND_PORT`, or a port
-  forward.
+- **`-q` skips opening a browser**, which is what you want over SSH; `--host`
+  and `--port` move it.
 - **The page loads CodeMirror and clusterize.js from cdnjs.** The parser is
   local; the editor chrome is not, so a fully offline machine gets a working
   tree with unstyled panes.
-- **The query pane takes `queries/highlights.scm` verbatim.** Same query
-  language as the editor integration, so it is the fastest way to iterate on a
-  capture before wiring it into Neovim.
+- **The query pane comes pre-filled with `queries/highlights.scm`** — tick
+  *query* to see it. Same query language as the editor integration, so it is
+  the fastest way to iterate on a capture before wiring it into Neovim.
 
 `npm run playground:export` writes a self-contained `playground/` directory
 (`index.html`, the parser Wasm, `web-tree-sitter.js`) instead of serving, which
 is what you would publish to GitHub Pages.
+
+### Why not just `tree-sitter playground`
+
+Because of what it opens with. The CLI's page starts empty, and `playground.js`
+then restores `sourceCode` from `localStorage` under a key that is **not**
+namespaced by grammar — so if you have ever served another grammar's playground
+on the same host and port, this one greets you with that grammar's source.
+
+`tools/playground.py` exports the page instead of serving it, seeds
+`localStorage` with the sample above and with the highlight queries, and serves
+the result. The seed is versioned and runs once: after the first visit your own
+edits persist across reloads exactly as before. The raw CLI still works if you
+want it —
+
+```sh
+npm run wasm && npx tree-sitter playground
+```
+
+— and it refuses to start without that first half:
+
+```
+Error: Failed to read tree-sitter-numpydoc.wasm. Run `tree-sitter build --wasm` first.
+```
 
 ## Layout
 
@@ -187,6 +205,7 @@ tools/numpydoc_swap.py  pytest plugin that swaps the parser in
 tools/run_numpydoc_suite.py  runs numpydoc's tests both ways and diffs
 tools/smoke_test.py     post-install check, imports nothing from the tree
 tools/highlight_demo.py runs the editor pipeline outside an editor
+tools/playground.py     serves the browser playground, seeded with a docstring
 editors/                Neovim queries and setup
 CMakeLists.txt          builds the extension; no setup.py
 .github/workflows/      CI: grammar, build, conformance, differential, lint, package
