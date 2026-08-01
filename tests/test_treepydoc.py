@@ -1127,3 +1127,24 @@ def test_per_line_ranges_would_flatten_nested_structure():
     assert "literal_block" in correct
     assert correct.count("(bullet_list") == 2
     assert "(bullet_list (list_item (body (paragraph) (bullet_list" in correct
+
+
+def test_the_two_query_copies_do_not_drift():
+    """`queries/` and `editors/nvim/queries/numpydoc/` must stay identical.
+
+    The repository root copy is what `tree-sitter.json` advertises and what a
+    packager picks up; the `editors/` copy is what the setup guide tells people
+    to install, and what the tests and the demo read. Nothing else keeps them
+    in step -- and they have already drifted once, leaving the shipped copy
+    without the `injection.include-children` directive that makes the rst
+    hand-off work at all.
+    """
+    root = Path(__file__).resolve().parent.parent / "queries"
+    names = sorted(p.name for p in root.glob("*.scm"))
+    assert names, "no queries found"
+    for name in names:
+        theirs = EDITOR_QUERIES / "numpydoc" / name
+        assert theirs.exists(), f"{name} is missing from editors/"
+        assert root.joinpath(name).read_text() == theirs.read_text(), (
+            f"{name} differs between queries/ and editors/nvim/queries/numpydoc/"
+        )
