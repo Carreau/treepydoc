@@ -12,6 +12,8 @@ is not importable.
 from __future__ import annotations
 
 import importlib.util
+import json
+import sys
 import warnings
 from pathlib import Path
 
@@ -792,3 +794,82 @@ def test_playground_sample_matches_numpydoc():
     for key in docscrape.NumpyDocString.sections:
         want = _normalise(expected[key])
         assert _normalise(actual[key]) == want, f"mismatch in {key!r}"
+
+
+# ---------------------------------------------------------------------------
+# The upstream wart scanner and the weekly issue sync
+# ---------------------------------------------------------------------------
+
+
+def _load_tool(name):
+    # Registered in sys.modules before exec because `warts.py` defines a
+    # dataclass, and `dataclasses` resolves annotations through
+    # `sys.modules[cls.__module__]`.
+    mod_name = f"_treepydoc_{name}"
+    spec = importlib.util.spec_from_file_location(mod_name, TOOLS_DIR / f"{name}.py")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[mod_name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+WART_CASES = {
+    "misspelled-section": "S.\n\nReturn\n------\nout : int\n    the value\n",
+    "unknown-section": "S.\n\nOptions\n-------\nsomething\n",
+    "unstripped-field": "S.\n\nParameters\n----------\nx :  int\n    d\n",
+    "dangling-separator": "S.\n\nParameters\n----------\nx :\n    d\n",
+    "underline-length": "S.\n\nNotes\n---------\nbody\n",
+    "spaced-index": "S.\n\n.. index :: term\n",
+}
+
+
+@pytest.mark.parametrize("kind,text", sorted(WART_CASES.items()))
+def test_warts_detects(kind, text):
+    """Each detector fires on a docstring built to trigger exactly it."""
+    pytest.importorskip("numpydoc.docscrape")
+    warts = _load_tool("warts")
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        found = {f[0] for f in warts.scan_docstring(text, warts.known_sections())}
+    assert kind in found, f"{kind} not detected in {text!r} (got {found})"
+
+
+def test_warts_finds_nothing_in_a_clean_docstring():
+    pytest.importorskip("numpydoc.docscrape")
+    warts = _load_tool("warts")
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        found = list(warts.scan_docstring(REPRESENTATIVE_DOC, warts.known_sections()))
+    assert found == []
+
+
+def test_warts_issues_round_trips_its_own_counts():
+    """Next week's delta is read back out of this week's issue body."""
+    issues = _load_tool("warts_issues")
+    findings = [
+        {"kind": "misspelled-section", "package": "numpy"},
+        {"kind": "misspelled-section", "package": "scipy"},
+        {"kind": "dangling-separator", "package": "numpy"},
+    ]
+    body = issues.census_body(findings, {}, "1.10.0")
+    recovered = issues.previous_counts({"body": body})
+    assert recovered == {
+        "total": 3,
+        "kinds": {"misspelled-section": 2, "dangling-separator": 1},
+    }
+
+    # A week later, one fewer: the table shows the change, not just the count.
+    later = issues.census_body(findings[1:], recovered, "1.10.0")
+    assert "**2 findings** (-1)." in later
+    assert "| `misspelled-section` | 1 | -1 |" in later
+
+
+def test_warts_issues_recognises_the_issues_it_opened():
+    """The marker is what makes a rerun update rather than duplicate."""
+    issues = _load_tool("warts_issues")
+    body = issues.MARKER.format(key="disagreement:abc123") + "\n\nbody text\n"
+    gh = issues.Gh(dry_run=True)
+    gh.read = lambda args: json.dumps(  # noqa: ARG005
+        [{"number": 7, "title": "t", "body": body, "state": "OPEN"}]
+    )
+    assert set(gh.existing()) == {"disagreement:abc123"}

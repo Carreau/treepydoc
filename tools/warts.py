@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import argparse
 import difflib
+import hashlib
 import json
 import re
 import sys
@@ -64,6 +65,10 @@ class Finding:
     column: int  # 0-based, in the file
     evidence: str
     detail: str
+    # sha1 of the docstring the finding came from. Stable when the enclosing
+    # file is edited around it, which `path:line` is not -- so it is what the
+    # weekly issue sync keys on.
+    fingerprint: str
 
 
 # ---------------------------------------------------------------------------
@@ -260,6 +265,7 @@ def scan(roots, known):
             if not text.strip():
                 continue
             docstrings += 1
+            fingerprint = hashlib.sha1(text.encode("utf-8")).hexdigest()[:12]
             raw_lines = text.splitlines()
             for kind, row, col, evidence, detail in scan_docstring(text, known):
                 # The docstring's first line starts after the opening quotes;
@@ -273,7 +279,7 @@ def scan(roots, known):
                 findings.append(
                     Finding(
                         kind, label, str(path), line_in_file + 1,
-                        column, evidence, detail,
+                        column, evidence, detail, fingerprint,
                     )
                 )
     return findings, files, docstrings

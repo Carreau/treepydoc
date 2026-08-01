@@ -32,10 +32,12 @@ touched the grammar, the scanner and the Python layer:
 | `dedent_lines([])` is `['']` | empty section body yields one blank parameter |
 
 The pin is `numpydoc==1.10.0` in CI and `numpydoc>=1.10` in `pyproject.toml`.
-What is missing is a *signal*: CI should also run the differential suites
-against numpydoc `main`, allowed to fail, so the next round of upstream changes
-shows up as a red optional job rather than as a surprise months later. That is
-a small workflow addition and it is the highest-value thing on this list.
+
+The signal this needed now exists: `.github/workflows/warts.yml` runs the
+upstream scan weekly against **both** the pinned release and numpydoc `main`,
+and files an issue the moment `main` parses something differently from the
+release. Upstream changes surface as an issue on this repository ahead of the
+release that would break users, rather than months later.
 
 A `compat=` switch spanning multiple numpydoc versions is explicitly **not**
 proposed any more. Retargeting showed the differences are spread across the
@@ -134,9 +136,8 @@ Left:
   docstring fixtures copied verbatim out of numpydoc's suite, and reformatting
   risks perturbing the data under test. Adopting it means excluding that file
   and accepting ~500 lines of churn elsewhere.
-- **The numpydoc pin is a CI variable.** `NUMPYDOC_VERSION` at the top of the
-  workflow. See section 0: CI should also run against numpydoc `main`, allowed
-  to fail, so upstream changes surface early.
+- **The numpydoc pin is a CI variable.** `NUMPYDOC_VERSION`, at the top of both
+  workflows, and they have to be bumped together.
 
 ---
 

@@ -1,0 +1,132 @@
+name: weekly wart scan
+
+# Scan the current `main` of the big numpydoc consumers, and turn what comes
+# back into issues on this repository -- opened when a finding appears, closed
+# automatically when it stops reproducing. See tools/warts_issues.py for how
+# the three issue kinds differ.
+on:
+  schedule:
+    # Mondays, 05:23 UTC. Off the hour so it does not queue behind everyone
+    # else's midnight cron.
+    - cron: "23 5 * * 1"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Print what would be filed instead of filing it"
+        type: boolean
+        default: false
+  # Changes to the scanner or the issue sync run against the real corpus, but
+  # never write: a broken script should fail review, not file 300 issues.
+  pull_request:
+    paths:
+      - "tools/warts.py"
+      - "tools/warts_issues.py"
+      - ".github/workflows/warts.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # The release treepydoc claims to be answer-for-answer identical to. Keep in
+  # step with ci.yml.
+  NUMPYDOC_VERSION: 1.10.0
+
+jobs:
+  scan:
+    name: scan upstream docstrings
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read # checkout only
+      issues: write # the whole point: open and close the scan's findings
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.11"
+
+      # Blobless and shallow: the scan reads the worktree, never the history.
+      - name: clone the projects at main
+        env:
+          PROJECTS: >-
+            numpy/numpy
+            scipy/scipy
+            pandas-dev/pandas
+            matplotlib/matplotlib
+            scikit-learn/scikit-learn
+        run: |
+          mkdir -p upstream
+          for slug in $PROJECTS; do
+            name="${slug#*/}"
+            git clone --depth 1 --filter=blob:none --no-tags \
+              "https://github.com/${slug}.git" "upstream/${name}"
+          done
+
+      # The scan directories are chosen so the reported package label is the
+      # import name: matplotlib lives under lib/, sklearn under its own name.
+      - name: work out what to scan
+        id: targets
+        run: |
+          {
+            echo "paths<<EOF"
+            echo "upstream/numpy/numpy"
+            echo "upstream/scipy/scipy"
+            echo "upstream/pandas/pandas"
+            echo "upstream/matplotlib/lib/matplotlib"
+            echo "upstream/scikit-learn/sklearn"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - run: python -m pip install --upgrade pip
+      - run: python -m pip install . tree-sitter-python "numpydoc==${NUMPYDOC_VERSION}"
+
+      - name: scan against the pinned numpydoc
+        env:
+          PATHS: ${{ steps.targets.outputs.paths }}
+        run: |
+          # shellcheck disable=SC2086  # deliberate word splitting: one arg per path
+          python tools/warts.py $PATHS --show 10 --json findings-pinned.json
+
+      # The same scan against numpydoc's development branch. A disagreement
+      # only visible here is upstream changing behaviour ahead of a release --
+      # the early warning PLAN.md section 0 asks for. Allowed to fail, because
+      # an unreleasable numpydoc main must not turn this job red.
+      - name: scan against numpydoc main
+        id: upstream
+        continue-on-error: true
+        env:
+          PATHS: ${{ steps.targets.outputs.paths }}
+        run: |
+          python -m pip install --upgrade \
+            "numpydoc @ git+https://github.com/numpy/numpydoc.git@main"
+          # shellcheck disable=SC2086
+          python tools/warts.py $PATHS --show 10 --json findings-main.json
+          python -m pip install --force-reinstall "numpydoc==${NUMPYDOC_VERSION}"
+
+      - name: open and close issues
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          # Pull requests exercise the whole pipeline and write nothing.
+          DRY_RUN: ${{ github.event_name == 'pull_request' || inputs.dry_run }}
+        run: |
+          args=(--pinned findings-pinned.json
+                --numpydoc-version "${NUMPYDOC_VERSION}")
+          if [ -f findings-main.json ]; then
+            args+=(--main findings-main.json)
+          fi
+          if [ "$DRY_RUN" = "true" ]; then
+            args+=(--dry-run)
+          fi
+          python tools/warts_issues.py "${args[@]}"
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: findings
+          path: findings-*.json

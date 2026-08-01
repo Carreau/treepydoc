@@ -130,6 +130,22 @@ is misspelled (`Return`, `Example`, `Parameters:`), 12 docstrings numpydoc
 refuses outright, and 44 headers that declared a type and lost it. See
 [PLAN.md](PLAN.md).
 
+`.github/workflows/warts.yml` runs that scan against those five projects' `main`
+every Monday and files the result here, opening issues when something appears
+and closing them when it stops reproducing. Three kinds, because they are not
+the same signal:
+
+| Issue | What it means |
+| --- | --- |
+| one per docstring | treepydoc and numpydoc parse it differently — **a treepydoc bug** |
+| one rolling census | numpydoc's warts in other people's docstrings, with the week-over-week delta |
+| one, when it fires | numpydoc `main` diverges from the pinned release — upstream drift, before it ships |
+
+Keyed on a hash of the docstring, so an issue survives the file being edited
+around it. Pull requests touching the scanner run the whole pipeline against the
+real corpus in dry-run, so a broken script fails review instead of filing 300
+issues.
+
 ## Editor support
 
 [`editors/README.md`](editors/README.md) has a complete Neovim setup: build the
@@ -221,9 +237,11 @@ tools/smoke_test.py     post-install check, imports nothing from the tree
 tools/highlight_demo.py runs the editor pipeline outside an editor
 tools/playground.py     serves the browser playground, seeded with a docstring
 tools/warts.py          finds live instances of numpydoc's warts in a source tree
+tools/warts_issues.py   turns a scan into issues, opened and closed automatically
 editors/                Neovim queries and setup
 CMakeLists.txt          builds the extension; no setup.py
 .github/workflows/      CI: grammar, build, conformance, differential, lint, package
+                        plus the weekly upstream scan
 treepydoc/sphinx.py     the Sphinx extension
 ```
 
