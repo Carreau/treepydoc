@@ -91,12 +91,17 @@ Left:
   leading indent as a block quote, so every injected description parses as
   `(block_quote (paragraph …))`.
 
+  This is not cosmetic. On `tree-sitter-rst` 0.2.0, the release CI installs,
+  an indented bullet list inside that block quote is read as two plain
+  paragraphs — the list is lost, not wrapped. (rst's git HEAD keeps it, so the
+  size of the loss moves with the grammar; the cause does not.)
+
   tree-sitter can inject over a set of ranges, and that does remove the
   wrapper — but a query can only exclude each line's *own* indent, and RST is
   relative-indentation sensitive, so a `::` literal block flattens into prose
   and a nested list becomes a sibling. Measured, and pinned by
-  `test_per_line_ranges_would_flatten_nested_structure`; the cosmetic wrapper
-  is the better trade.
+  `test_per_line_ranges_would_flatten_nested_structure`. Whole-region is the
+  better of the two available options; neither is right.
 
   The fix is to strip the region's **common** margin instead, which the query
   language cannot express. It needs three things: the indent moved out of the

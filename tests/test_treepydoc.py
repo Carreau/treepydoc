@@ -1044,20 +1044,35 @@ def test_injected_regions_parse_as_rst():
     for host, region in _injected(RST_DOC):
         by_host.setdefault(host, set()).update(node_types(region))
 
-    # A role in the summary, a bullet list in a parameter description, a role
-    # in a See Also description, an inline literal and a doctest in Notes.
+    # Inline markup is indentation-independent, so it survives the hand-off as
+    # it stands: a role in the summary and another in a See Also description.
     assert "role" in by_host["summary"]
-    assert "bullet_list" in by_host["description"]
     assert "role" in by_host["see_also_description"]
-    assert {"literal", "doctest_block"} <= by_host["section_body"]
+
+    # Block markup is not. Asserting it on the raw region would pin one
+    # tree-sitter-rst version's opinion of what survives inside a block quote
+    # -- 0.2.0 reads an indented bullet list as two paragraphs, git HEAD reads
+    # it as a list -- so the claim is made where it is version-independent:
+    # once the region is dedented, which is what a margin token would buy.
+    for host in ("description", "section_body"):
+        region = next(r for h, r in _injected(RST_DOC) if h == host)
+        dedented = node_types(textwrap.dedent(region.decode()).encode())
+        assert "block_quote" not in dedented
+        if host == "description":
+            assert "bullet_list" in dedented
+        else:
+            assert {"literal", "doctest_block"} <= dedented
 
 
 def test_indented_regions_become_a_block_quote():
     """The known cost of injecting an editor's un-dedented text.
 
     A parameter description is indented under its header, and rst reads a
-    leading indent as a block quote. The content inside still parses -- this
-    pins the wrapper so the caveat in editors/README.md stays honest.
+    leading indent as a block quote. How much survives *inside* that quote is
+    grammar-dependent -- tree-sitter-rst 0.2.0 flattens an indented bullet
+    list into paragraphs where git HEAD keeps it -- so only the wrapper is
+    asserted here. That it is a wrapper and not merely cosmetic is the point
+    of the margin token in PLAN.md section 2.
     """
     tree_sitter_rst = pytest.importorskip("tree_sitter_rst")
     language = tree_sitter.Language(tree_sitter_rst.language())

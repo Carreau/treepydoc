@@ -184,13 +184,18 @@ captures: comment=6, function=2, markup.heading=5, markup.italic=1,
 markup.raw.block=2, property=1, punctuation.bracket=2,
 punctuation.delimiter=7, punctuation.special=5, type=4, variable.parameter=4
 
-9 region(s) handed to rst -> 12 node types: block_quote, body, bullet_list,
-content, directive, doctest_block, interpreted_text, list_item, literal,
-paragraph, role, type
+9 region(s) handed to rst -> 10 node types: block_quote, body, content,
+directive, doctest_block, interpreted_text, literal, paragraph, role, type
 ```
 
 Five headings, five underlines, four parameter names, four types — and nine
 regions the numpydoc grammar deliberately does not look inside.
+
+The rst node list is grammar-version dependent: that is `tree-sitter-rst`
+0.2.0, the release on PyPI. Against its git HEAD you also get `bullet_list`
+and `list_item`, because that version finds a bullet list inside a block
+quote and 0.2.0 does not — see *The indentation cost* below, which is where
+that difference comes from.
 
 ## Capture names
 
@@ -257,8 +262,24 @@ Two nodes are deliberately **not** injected:
 An editor hands over the docstring as it appears in the file, and a parameter
 description is indented under its header. reStructuredText reads a leading
 indent as a **block quote**, so an injected description parses as
-`(block_quote (paragraph …))` rather than `(paragraph …)`. Everything inside
-still parses and still highlights; the wrapper is the only difference.
+`(block_quote (paragraph …))` rather than `(paragraph …)`.
+
+How much survives *inside* that quote is not a constant, and this is worse
+than it first looks. On `tree-sitter-rst` 0.2.0 — the PyPI release, and what
+`pip install treepydoc[rst]` gives you — an indented bullet list is not a
+bullet list at all:
+
+```
+    The mean. It must be:            (document
+                                       (block_quote
+    - finite,             ---->          (paragraph)
+    - real.                              (paragraph)))
+```
+
+Two paragraphs. The list is gone, not wrapped. Against rst's git HEAD the same
+region keeps its `bullet_list`, so this is a grammar-version difference rather
+than a fixed cost — but it means the indent is losing real structure today,
+not just adding a node.
 
 The obvious fix is to inject over a *set* of ranges — one per line, each
 starting past the indent — which tree-sitter supports and nvim reaches through
@@ -291,5 +312,6 @@ pins that, so nobody tries it twice.
 Doing it properly means stripping the region's **common** margin rather than
 each line's own, which the query language cannot express — the scanner would
 have to measure the margin and hand over a token that consumes exactly it. See
-[PLAN.md](../PLAN.md). Until then the block quote is the better trade: a
-cosmetic wrapper beats losing structure.
+[PLAN.md](../PLAN.md). Until then the whole-region injection is still the
+better of the two available options — per-line ranges lose *more* — but
+neither is right, and the margin token is what makes it right.
