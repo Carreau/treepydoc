@@ -75,6 +75,12 @@ Left:
 
 - **Package the queries** for nvim-treesitter and Helix rather than asking
   people to copy files.
+- **Publish the playground.** `npm run playground:export` already writes a
+  self-contained static directory, and CI builds it on every push; nothing
+  deploys it. A Pages job would give the grammar a URL to point at — the cost is
+  a second workflow with `pages: write`, which is why it is not in the
+  `contents: read` one. `tree-sitter-rst` does exactly this, and its Makefile is
+  the model.
 - **A diagnostics pass.** `queries/diagnostics.scm` captures `dangling_separator`
   and `ERROR`. Worth adding: a section title one edit away from a known name
   (`Retruns`, `Parmeters`), which is still a silent documentation deletion.

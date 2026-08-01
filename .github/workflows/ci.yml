@@ -45,6 +45,20 @@ jobs:
       - name: corpus tests
         run: npx tree-sitter test
 
+      # The scanner has to compile under wasi-sdk too, not just the host
+      # toolchain -- that is what the browser playground and any web-tree-sitter
+      # consumer load. The CLI downloads the SDK on first use.
+      - name: the scanner builds to Wasm
+        run: npx tree-sitter build --wasm
+
+      # Proves the playground is servable from a clean checkout: the export
+      # writes exactly the files `tree-sitter playground` would serve.
+      - name: playground exports
+        run: |
+          npx tree-sitter playground --export playground
+          test -s playground/index.html
+          test -s playground/tree-sitter-parser.wasm
+
   build:
     name: build (${{ matrix.os }}, py${{ matrix.python }})
     runs-on: ${{ matrix.os }}

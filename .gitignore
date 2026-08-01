@@ -7,3 +7,7 @@ __pycache__/
 .pytest_cache/
 dist/
 _skbuild/
+
+# `tree-sitter build --wasm`, and `tree-sitter playground --export`
+*.wasm
+playground/

@@ -125,6 +125,11 @@ From `queries/highlights.scm`:
 | `index_marker` | `@comment` |
 | `ERROR` | `@error` |
 
+To iterate on a capture without restarting an editor, paste the query into the
+browser playground — `npm run playground` from the repository root — which runs
+the same query language against the same grammar and shows what each pattern
+matches. See the README's *Playground* section.
+
 `queries/injections.scm` additionally hands the prose sections (`Notes`,
 `Examples`, `References`, and parameter descriptions) to `rst`, so install
 [tree-sitter-rst](https://github.com/stsewd/tree-sitter-rst) if you want those

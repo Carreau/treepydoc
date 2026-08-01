@@ -128,6 +128,46 @@ entries out of it, so a docstring lifted straight out of a source file — still
 indented to its function — parses exactly like a dedented one. That was a real
 limitation against older numpydoc and is not one any more.
 
+## Playground
+
+The tree-sitter CLI ships a browser playground — a docstring in one pane, the
+live parse tree in the other, and a query box that runs against it. It works on
+this grammar:
+
+```sh
+npm install
+npm run playground          # builds the Wasm parser, then serves it
+```
+
+That prints `Started playground on: http://127.0.0.1:8000` and opens a browser.
+The two steps are separate if you want them to be — `npm run wasm` is
+`tree-sitter build --wasm`, and `npx tree-sitter playground` refuses to start
+without it:
+
+```
+Error: Failed to read tree-sitter-numpydoc.wasm. Run `tree-sitter build --wasm` first.
+```
+
+Worth knowing:
+
+- **The first Wasm build downloads a toolchain.** No Emscripten and no Docker
+  needed any more; the CLI fetches wasi-sdk (~113 MB) into
+  `~/.cache/tree-sitter/` once. The build itself takes a few seconds and
+  produces a 50 KB `tree-sitter-numpydoc.wasm` (git-ignored).
+- **`-q` skips opening a browser**, which is what you want over SSH — pair it
+  with `TREE_SITTER_PLAYGROUND_ADDR` / `TREE_SITTER_PLAYGROUND_PORT`, or a port
+  forward.
+- **The page loads CodeMirror and clusterize.js from cdnjs.** The parser is
+  local; the editor chrome is not, so a fully offline machine gets a working
+  tree with unstyled panes.
+- **The query pane takes `queries/highlights.scm` verbatim.** Same query
+  language as the editor integration, so it is the fastest way to iterate on a
+  capture before wiring it into Neovim.
+
+`npm run playground:export` writes a self-contained `playground/` directory
+(`index.html`, the parser Wasm, `web-tree-sitter.js`) instead of serving, which
+is what you would publish to GitHub Pages.
+
 ## Layout
 
 ```
