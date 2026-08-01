@@ -252,14 +252,44 @@ Two nodes are deliberately **not** injected:
   and a type is an inline fragment rather than a block. It is a one-line
   addition if you disagree.
 
-### The indentation cost
+### The indentation cost, and why it is not fixed the obvious way
 
 An editor hands over the docstring as it appears in the file, and a parameter
 description is indented under its header. reStructuredText reads a leading
 indent as a **block quote**, so an injected description parses as
-`(block_quote (paragraph …))` rather than `(paragraph …)`.
+`(block_quote (paragraph …))` rather than `(paragraph …)`. Everything inside
+still parses and still highlights; the wrapper is the only difference.
 
-Everything inside still parses and still highlights — the wrapper is the only
-difference — and there is no fix available from this side: injection ranges can
-be offset, but not dedented per line. `test_indented_regions_become_a_block_quote`
-pins the behaviour so this note stays true.
+The obvious fix is to inject over a *set* of ranges — one per line, each
+starting past the indent — which tree-sitter supports and nvim reaches through
+`injection.combined`. It does remove the wrapper. It is also **wrong**, and
+the reason is worth writing down.
+
+A query can only exclude each line's *own* leading whitespace, not the
+region's common margin, and reStructuredText is sensitive to *relative*
+indentation. Take:
+
+```
+    Choose one of::
+
+        literal block
+
+    - outer
+
+      - nested
+```
+
+| | result |
+| --- | --- |
+| whole region, one range | `(block_quote (paragraph (literal_block)) (bullet_list (list_item (body … (bullet_list …)))))` |
+| one range per line | `(paragraph) (paragraph) (bullet_list …) (bullet_list …)` |
+
+The wrapper is gone and so is the content: the literal block has become prose
+and the nested list a sibling. `test_per_line_ranges_would_flatten_nested_structure`
+pins that, so nobody tries it twice.
+
+Doing it properly means stripping the region's **common** margin rather than
+each line's own, which the query language cannot express — the scanner would
+have to measure the margin and hand over a token that consumes exactly it. See
+[PLAN.md](../PLAN.md). Until then the block quote is the better trade: a
+cosmetic wrapper beats losing structure.

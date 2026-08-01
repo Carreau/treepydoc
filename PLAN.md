@@ -86,6 +86,33 @@ Left:
 - **A diagnostics pass.** `queries/diagnostics.scm` captures `dangling_separator`
   and `ERROR`. Worth adding: a section title one edit away from a known name
   (`Retruns`, `Parmeters`), which is still a silent documentation deletion.
+- **A margin token, so the rst injection can dedent.** An editor hands over a
+  docstring still indented to its function, and reStructuredText reads a
+  leading indent as a block quote, so every injected description parses as
+  `(block_quote (paragraph …))`.
+
+  tree-sitter can inject over a set of ranges, and that does remove the
+  wrapper — but a query can only exclude each line's *own* indent, and RST is
+  relative-indentation sensitive, so a `::` literal block flattens into prose
+  and a nested list becomes a sibling. Measured, and pinned by
+  `test_per_line_ranges_would_flatten_nested_structure`; the cosmetic wrapper
+  is the better trade.
+
+  The fix is to strip the region's **common** margin instead, which the query
+  language cannot express. It needs three things: the indent moved out of the
+  `line` node, `line` extended to span its own newline (so concatenated ranges
+  do not run together), and blank lines made visible (or two paragraphs
+  separated by one merge). All three are cheap — a prototype passed all 60
+  corpus cases with 3 expectation updates and left every differential suite
+  identical, because the Python layer slices whole source lines by row and
+  never reads a line's columns.
+
+  What is not cheap is the fourth: an external token that consumes exactly the
+  region's margin. The scanner already computes a section body's margin for
+  `dedent_lines`; a description needs its own, measured the same way, and the
+  preamble paragraphs need a third. That is the whole job, and it is worth
+  doing — it is the difference between the tree being an approximation of what
+  an editor should show and being exactly it.
 
 ## 3. Replace `numpydoc.validate`
 

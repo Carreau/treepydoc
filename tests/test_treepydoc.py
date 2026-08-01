@@ -14,6 +14,7 @@ from __future__ import annotations
 import importlib.util
 import json
 import sys
+import textwrap
 import warnings
 from pathlib import Path
 
@@ -1065,3 +1066,64 @@ def test_indented_regions_become_a_block_quote():
     region = next(r for host, r in _injected(RST_DOC) if host == "description")
     assert region.startswith(b"    ")
     assert parser.parse(region).root_node.children[0].type == "block_quote"
+
+
+def test_per_line_ranges_would_flatten_nested_structure():
+    """Why the rst injection is one range and not one per line.
+
+    tree-sitter can inject over a *set* of ranges, and excluding each line's
+    leading whitespace does remove the `block_quote` wrapper -- that much
+    works. But a query can only exclude each line's *own* indent, not the
+    region's common margin, and reStructuredText is relative-indentation
+    sensitive. A literal block collapses into a paragraph and a nested list
+    becomes a sibling. This pins the counterexample so the "obvious"
+    improvement is not attempted twice; the real fix needs the scanner to hand
+    over a margin, see PLAN.md.
+    """
+    tree_sitter_rst = pytest.importorskip("tree_sitter_rst")
+    rst = tree_sitter.Language(tree_sitter_rst.language())
+
+    region = (
+        "    Choose one of::\n"
+        "\n"
+        "        literal block\n"
+        "\n"
+        "    - outer\n"
+        "\n"
+        "      - nested\n"
+    )
+    source = region.encode()
+
+    # One range per line, each starting past that line's own whitespace.
+    ranges, offset = [], 0
+    for row, text in enumerate(region.split("\n")[:-1]):
+        skip = len(text) - len(text.lstrip())
+        ranges.append(
+            tree_sitter.Range(
+                start_byte=offset + skip,
+                end_byte=offset + len(text) + 1,
+                start_point=(row, skip),
+                end_point=(row, len(text) + 1),
+            )
+        )
+        offset += len(text) + 1
+
+    parser = tree_sitter.Parser(rst)
+    parser.included_ranges = ranges
+    flattened = str(parser.parse(source).root_node)
+
+    # The wrapper really is gone -- the mechanism works.
+    assert "block_quote" not in flattened
+    # But so is the structure: the `::` literal block is read as ordinary
+    # prose, and the nested list has become a sibling of the outer one.
+    assert "literal_block" not in flattened
+    assert flattened.count("(bullet_list") == 2
+
+    # Dedenting by the *common* margin keeps both, which is what a
+    # scanner-provided margin would let the ranges do.
+    correct = str(
+        tree_sitter.Parser(rst).parse(textwrap.dedent(region).encode()).root_node
+    )
+    assert "literal_block" in correct
+    assert correct.count("(bullet_list") == 2
+    assert "(bullet_list (list_item (body (paragraph) (bullet_list" in correct
